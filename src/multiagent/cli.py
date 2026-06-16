@@ -15,6 +15,7 @@ from multiagent.agents.build import BuildAgent
 from multiagent.agents.github_pr import GitHubPRAgent
 from multiagent.agents.reviewer import ReviewerAgent
 from multiagent.agents.test_runner import TestRunnerAgent
+from multiagent.config import load_config
 from multiagent.context.store import ContextStore, Finding
 from multiagent.llm.gateway import LLMGateway
 from multiagent.mcp.client import MCPClient, MCPServerConfig
@@ -119,10 +120,16 @@ def _analyze(args: argparse.Namespace) -> None:
     if not repo_path.exists() or not repo_path.is_dir():
         _fail(f"Repo dizini bulunamadi: {repo_path}")
 
-    context = ContextStore(repo_path=repo_path)
+    config = load_config(
+        repo_path / "multiagent.toml"
+        if (repo_path / "multiagent.toml").exists()
+        else repo_path / ".multiagent.toml"
+    )
+
+    context = ContextStore(repo_path=repo_path, exclude_dirs=set(config.exclude_dirs))
     context.load_repo(repo_path)
 
-    model = args.model
+    model = args.model or config.model
     llm = (
         LLMGateway.from_env(model=model)
         if isinstance(model, str)
@@ -148,18 +155,32 @@ def _analyze(args: argparse.Namespace) -> None:
 
         active_names = [name for name in valid_agent_names if name in requested_names]
     else:
-        active_names = valid_agent_names
+        # Check config agents
+        active_names = [name for name in valid_agent_names if name in config.agents]
+        if args.open_pr or args.execute_pr:
+            if "github_pr" not in active_names:
+                active_names.append("github_pr")
 
-    require_mcp = bool(args.require_mcp)
+    require_mcp = bool(args.require_mcp) or config.require_mcp
     mcp_client = None
-    if args.mcp_command or args.mcp_url:
-        mcp_args = args.mcp_args.split() if args.mcp_args else []
-        config = MCPServerConfig(
-            command=args.mcp_command,
+
+    cmd = args.mcp_command or config.mcp_command
+    url = args.mcp_url or config.mcp_url
+
+    if cmd or url:
+        if args.mcp_args:
+            mcp_args = args.mcp_args.split()
+        elif config.mcp_args:
+            mcp_args = config.mcp_args
+        else:
+            mcp_args = []
+
+        server_config = MCPServerConfig(
+            command=cmd,
             args=mcp_args,
-            url=args.mcp_url,
+            url=url,
         )
-        mcp_client = MCPClient(config)
+        mcp_client = MCPClient(server_config)
 
     agents_map: dict[str, Agent] = {
         "reviewer": ReviewerAgent(llm=llm, tools=mcp_client, require_mcp=require_mcp),

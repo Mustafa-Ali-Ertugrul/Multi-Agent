@@ -5,8 +5,6 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Self
 
-EXCLUDED_DIRS = {".venv", "node_modules", ".git"}
-
 
 @dataclass(frozen=True)
 class Finding:
@@ -23,6 +21,9 @@ class ContextStore:
     files: dict[str, str] = field(default_factory=dict)
     findings: list[Finding] = field(default_factory=list)
     decisions: list[str] = field(default_factory=list)
+    exclude_dirs: set[str] = field(
+        default_factory=lambda: {".venv", "node_modules", ".git"}
+    )
 
     def load_repo(self, path: Path | str) -> None:
         repo_path = Path(path)
@@ -78,12 +79,11 @@ class ContextStore:
             decisions=decisions,
         )
 
-    @staticmethod
-    def _iter_python_files(repo_path: Path) -> list[Path]:
+    def _iter_python_files(self, repo_path: Path) -> list[Path]:
         return [
             path
             for path in repo_path.rglob("*.py")
-            if not EXCLUDED_DIRS.intersection(path.relative_to(repo_path).parts)
+            if not self.exclude_dirs.intersection(path.relative_to(repo_path).parts)
         ]
 
     @staticmethod
