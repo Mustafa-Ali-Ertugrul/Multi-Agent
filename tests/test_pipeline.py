@@ -78,7 +78,6 @@ def test_end_to_end_pipeline(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
             ArchitectAgent(llm=llm),
             TestRunnerAgent(llm=llm),
             BuildAgent(llm=llm, apply=False),
-            GitHubPRAgent(llm=llm, dry_run=True),
         ]
 
         orchestrator = Orchestrator(llm=llm, agents=agents)
@@ -95,11 +94,28 @@ def test_end_to_end_pipeline(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
 
         assert len(final_context.decisions) > 0
 
-        dry_run_decision = any("[DRY RUN]" in str(d) for d in final_context.decisions)
-        assert dry_run_decision is True
-
         diff_decision = any(
             "Onerilen degisiklik (unified diff):" in str(d)
             for d in final_context.decisions
         )
         assert diff_decision is True
+
+
+def test_github_pr_agent_dry_run(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setenv("GITHUB_TOKEN", "fake_token")
+
+    llm = FakeLLM()
+    agent = GitHubPRAgent(llm=llm, dry_run=True)
+
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+
+    context = ContextStore(repo_path=repo_dir)
+    context.decisions.append(
+        "Onerilen degisiklik (unified diff):\n--- a/file\n+++ b/file\n@@ -1 +1 @@\n-a\n+b"
+    )
+
+    final_context = agent.run(context)
+
+    dry_run_decision = any("[DRY RUN]" in str(d) for d in final_context.decisions)
+    assert dry_run_decision is True
