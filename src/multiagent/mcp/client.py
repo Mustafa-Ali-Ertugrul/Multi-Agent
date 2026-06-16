@@ -1,17 +1,29 @@
 from __future__ import annotations
 
+import typing
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Any, Self
 
-try:
-    from mcp.client.session import ClientSession  # type: ignore
-    from mcp.client.sse import sse_client  # type: ignore
-    from mcp.client.stdio import StdioServerParameters, stdio_client  # type: ignore
-except ImportError as exc:
-    raise RuntimeError(
-        "MCP SDK (mcp) kurulu degil. Lutfen 'pip install mcp' ile kurun."
-    ) from exc
+if typing.TYPE_CHECKING:
+    from mcp.client.session import ClientSession
+    from mcp.client.sse import sse_client
+    from mcp.client.stdio import StdioServerParameters, stdio_client
+
+    _MCP_AVAILABLE = True
+else:
+    try:
+        from mcp.client.session import ClientSession
+        from mcp.client.sse import sse_client
+        from mcp.client.stdio import StdioServerParameters, stdio_client
+
+        _MCP_AVAILABLE = True
+    except ImportError:
+        _MCP_AVAILABLE = False
+        ClientSession = typing.Any
+        sse_client = typing.Any
+        StdioServerParameters = typing.Any
+        stdio_client = typing.Any
 
 
 @dataclass(frozen=True)
@@ -37,6 +49,10 @@ class MCPServerConfig:
 
 class MCPClient:
     def __init__(self, config: MCPServerConfig) -> None:
+        if not _MCP_AVAILABLE:
+            raise RuntimeError(
+                "MCP SDK (mcp) kurulu degil. Lutfen 'pip install mcp' ile kurun."
+            )
         self.config = config
         self.config.validate()
         self._exit_stack: AsyncExitStack | None = None

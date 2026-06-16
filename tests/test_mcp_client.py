@@ -2,7 +2,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from multiagent.mcp.client import MCPClient, MCPServerConfig
+from multiagent.mcp.client import _MCP_AVAILABLE, MCPClient, MCPServerConfig
+
+pytestmark = pytest.mark.skipif(not _MCP_AVAILABLE, reason="MCP SDK kurulu degil")
 
 
 def test_mcp_config_validation() -> None:
