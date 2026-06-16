@@ -1,4 +1,4 @@
-# multiagent
+<h1 align="center">MULTI AGENT</h1>
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/Mustafa-Ali-Ertugrul/Multi-Agent/ci.yml?branch=main&style=flat-square" alt="CI Status">
@@ -7,9 +7,11 @@
 </p>
 
 <p align="center">
-  <img src="assets/multiagent_cli_demo.png" alt="Multi-Agent CLI Terminal Demo" width="800"/>
-  <br>
-  <em>Multi-Agent CLI - Autonomous Code Improvement and PR Generation</em>
+  <img src="assets/multiagent_cli_demo.png" alt="Multi-Agent CLI Terminal Demo" style="max-width: 100%; height: auto;">
+</p>
+
+<p align="center">
+  <em>MULTI AGENT - Autonomous Code Improvement and PR Generation</em>
 </p>
 
 `multiagent` is an intelligent code analysis and automated Pull Request creation tool developed with Python 3.11+. It can autonomously orchestrate external tools using the Model Context Protocol (MCP). The project provides a clean foundation for orchestrating specialized agents (Reviewer, Architect, TestRunner, Build, etc.), LLM integrations, and context management (ContextStore) with strict package boundaries.
