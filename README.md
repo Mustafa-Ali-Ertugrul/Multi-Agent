@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/terminal_demo.png" alt="Multi-Agent CLI Terminal Demo" style="max-width: 100%;">
+  <img src="assets/showcase-terminal-real.png" alt="Multi-Agent CLI Terminal Demo" style="max-width: 100%;">
 </p>
 
 This project is a fully completed, intelligent multi-agent code analysis and automated Pull Request creation tool developed with Python 3.11+. It seamlessly orchestrates specialized agents (Reviewer, Architect, TestRunner, Build, GitHubPR) to scan your codebase, propose architecture improvements, validate tests, and open GitHub Pull Requests completely autonomously using the Model Context Protocol (MCP) and LLM integrations.
