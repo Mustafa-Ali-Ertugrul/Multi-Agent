@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 
-![Multi-Agent CLI Terminal Demo](assets/multiagent_cli_demo.png)
+![Multi-Agent CLI Terminal Demo](assets/terminal_demo.webp)
 
 This project is an intelligent code analysis and automated Pull Request creation tool developed with Python 3.11+. It can autonomously orchestrate external tools using the Model Context Protocol (MCP). The project provides a clean foundation for orchestrating specialized agents (Reviewer, Architect, TestRunner, Build, etc.), LLM integrations, and context management (ContextStore) with strict package boundaries.
 
