@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/terminal_demo.webp" alt="Multi-Agent CLI Terminal Demo" width="800"/>
+  <img src="assets/multiagent_cli_demo.png" alt="Multi-Agent CLI Terminal Demo" width="800"/>
   <br>
   <em>Multi-Agent CLI - Autonomous Code Improvement and PR Generation</em>
 </p>
