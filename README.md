@@ -1,14 +1,18 @@
 # multiagent
 
 <p align="center">
-  <img src="assets/terminal_demo.jpg" alt="Multi-Agent CLI Terminal Demo" width="800"/>
+  <img src="https://img.shields.io/github/actions/workflow/status/Mustafa-Ali-Ertugrul/Multi-Agent/ci.yml?branch=main&style=flat-square" alt="CI Status">
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue?style=flat-square" alt="Python Version">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
+</p>
+
+<p align="center">
+  <img src="assets/terminal_demo.webp" alt="Multi-Agent CLI Terminal Demo" width="800"/>
   <br>
   <em>Multi-Agent CLI - Otonom Kod İyileştirme ve PR Oluşturma</em>
 </p>
 
-`multiagent`, Python 3.11+ ile geliştirilecek multi-agent kod analiz aracı için başlangıç iskeletidir.
-
-Amaç, farklı ajanların orkestrasyonunu, LLM entegrasyonlarını, MCP bağlantılarını, araçları ve bağlam yönetimini temiz paket sınırlarıyla geliştirmeye uygun bir temel sağlamaktır.
+`multiagent`, Python 3.11+ ile geliştirilmiş, harici araçları (MCP) otonom şekilde yönetebilen akıllı bir kod analiz ve otomatik PR oluşturma aracıdır. Farklı uzmanlıktaki ajanların (Reviewer, Architect, TestRunner, vb.) orkestrasyonunu, LLM entegrasyonlarını ve bağlam yönetimini (ContextStore) temiz paket sınırlarıyla sunar.
 
 ## Sergileme (Showcase)
 > **Not:** Sistem çalışırken çok daha zengin bir etkileşim sunar. Asciinema kaydı veya hareketli bir GIF hazırlayarak bu bölüme ekleyebilirsiniz. [Asciinema ile nasıl kaydedilir?](https://asciinema.org/docs/getting-started)
