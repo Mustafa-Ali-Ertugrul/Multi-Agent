@@ -3,10 +3,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from multiagent.agents.base import Agent
 from multiagent.context.store import ContextStore, Finding
 from multiagent.llm.gateway import LLMGateway
+
+if TYPE_CHECKING:
+    from multiagent.mcp.client import MCPClient
 
 HUNK_HEADER_RE = re.compile(r"@@ -(?P<old_start>\d+)(?:,\d+)? \+\d+(?:,\d+)? @@")
 
@@ -22,7 +26,14 @@ class DiffFile:
 
 
 class BuildAgent(Agent):
-    def __init__(self, llm: LLMGateway, apply: bool = False) -> None:
+    def __init__(
+        self,
+        llm: LLMGateway,
+        apply: bool = False,
+        tools: MCPClient | None = None,
+        require_mcp: bool = False,
+    ) -> None:
+        super().__init__(tools=tools, require_mcp=require_mcp)
         self.llm = llm
         self.apply = apply
 

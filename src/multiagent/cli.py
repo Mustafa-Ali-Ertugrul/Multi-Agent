@@ -16,6 +16,7 @@ from multiagent.agents.reviewer import ReviewerAgent
 from multiagent.agents.test_runner import TestRunnerAgent
 from multiagent.context.store import ContextStore, Finding
 from multiagent.llm.gateway import LLMGateway
+from multiagent.mcp.client import MCPClient, MCPServerConfig
 from multiagent.orchestrator.core import Orchestrator
 
 console = Console()
@@ -67,6 +68,29 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="BuildAgent'in diff uygulamasini acar.",
     )
+    analyze_parser.add_argument(
+        "--require-mcp",
+        action="store_true",
+        help="MCP entegrasyonunu zorunlu kilar, mcp arizalanirsa sert hata firlatir.",
+    )
+    analyze_parser.add_argument(
+        "--mcp-command",
+        type=str,
+        default=None,
+        help="MCP stdio sunucusu icin komut.",
+    )
+    analyze_parser.add_argument(
+        "--mcp-args",
+        type=str,
+        default=None,
+        help="MCP stdio sunucusu icin argumanlar (boslukla ayrilmis).",
+    )
+    analyze_parser.add_argument(
+        "--mcp-url",
+        type=str,
+        default=None,
+        help="MCP sse sunucusu icin URL.",
+    )
 
     return parser
 
@@ -104,11 +128,26 @@ def _analyze(args: argparse.Namespace) -> None:
     else:
         active_names = valid_agent_names
 
+    require_mcp = bool(args.require_mcp)
+    mcp_client = None
+    if args.mcp_command or args.mcp_url:
+        mcp_args = args.mcp_args.split() if args.mcp_args else []
+        config = MCPServerConfig(
+            command=args.mcp_command,
+            args=mcp_args,
+            url=args.mcp_url,
+        )
+        mcp_client = MCPClient(config)
+
     agents_map: dict[str, Agent] = {
-        "reviewer": ReviewerAgent(llm=llm),
-        "architect": ArchitectAgent(llm=llm),
-        "test-runner": TestRunnerAgent(llm=llm),
-        "build": BuildAgent(llm=llm, apply=bool(args.apply)),
+        "reviewer": ReviewerAgent(llm=llm, tools=mcp_client, require_mcp=require_mcp),
+        "architect": ArchitectAgent(llm=llm, tools=mcp_client, require_mcp=require_mcp),
+        "test-runner": TestRunnerAgent(
+            llm=llm, tools=mcp_client, require_mcp=require_mcp
+        ),
+        "build": BuildAgent(
+            llm=llm, apply=bool(args.apply), tools=mcp_client, require_mcp=require_mcp
+        ),
     }
 
     agent_results: list[tuple[str, list[Finding], list[str]]] = []

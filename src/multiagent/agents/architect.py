@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 import ast
+from typing import TYPE_CHECKING
 
 from multiagent.agents.base import Agent
 from multiagent.context.store import ContextStore
 from multiagent.llm.gateway import LLMGateway
 
+if TYPE_CHECKING:
+    from multiagent.mcp.client import MCPClient
+
 MAX_FALLBACK_LINES = 40
 
 
 class ArchitectAgent(Agent):
-    def __init__(self, llm: LLMGateway) -> None:
+    def __init__(
+        self,
+        llm: LLMGateway,
+        tools: MCPClient | None = None,
+        require_mcp: bool = False,
+    ) -> None:
+        super().__init__(tools=tools, require_mcp=require_mcp)
         self.llm = llm
 
     @property

@@ -1,13 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from multiagent.agents.base import Agent
 from multiagent.context.store import ContextStore, Finding
 from multiagent.llm.gateway import LLMGateway
+
+if TYPE_CHECKING:
+    from multiagent.mcp.client import MCPClient
 
 
 class ReviewerError(RuntimeError):
@@ -15,7 +19,13 @@ class ReviewerError(RuntimeError):
 
 
 class ReviewerAgent(Agent):
-    def __init__(self, llm: LLMGateway) -> None:
+    def __init__(
+        self,
+        llm: LLMGateway,
+        tools: MCPClient | None = None,
+        require_mcp: bool = False,
+    ) -> None:
+        super().__init__(tools=tools, require_mcp=require_mcp)
         self.llm = llm
 
     @property
@@ -23,6 +33,14 @@ class ReviewerAgent(Agent):
         return "reviewer"
 
     def run(self, context: ContextStore) -> ContextStore:
+        if self.tools is not None:
+            mcp_result = asyncio.run(self._run_mcp_workflow(context))
+            if mcp_result is not None:
+                context.decisions.append(
+                    f"MCP Guvenlik Analizi Sonuclari:\n{mcp_result}"
+                )
+                return context
+
         python_files = self._python_file_paths(context)
         if not python_files:
             context.decisions.append(
@@ -38,6 +56,36 @@ class ReviewerAgent(Agent):
 
         context.decisions.append(self._summarize_findings(findings))
         return context
+
+    async def _run_mcp_workflow(self, context: ContextStore) -> str | None:
+        if self.tools is None:
+            return None
+
+        try:
+            async with self.tools:
+                mcp_tools = await self.tools.list_tools()
+                tool_names = {t.name for t in mcp_tools}
+
+                target_tools = ["security_scan", "static_analysis", "run_linter"]
+                selected_tool = next((t for t in target_tools if t in tool_names), None)
+
+                if not selected_tool:
+                    if self.require_mcp:
+                        raise ReviewerError("Beklenen MCP araci bulunamadi.")
+                    return None
+
+                result = await self.tools.call_tool(
+                    selected_tool, {"path": str(context.repo_path)}
+                )
+                return result
+        except Exception as exc:
+            if self.require_mcp:
+                raise ReviewerError(f"MCP araci kullanilamadi: {exc}") from exc
+
+            context.decisions.append(
+                f"MCP araci kullanilamadi, yerel analize donuldu: {exc}"
+            )
+            return None
 
     @staticmethod
     def _python_file_paths(context: ContextStore) -> list[Path]:

@@ -39,10 +39,11 @@ class MCPClient:
     def __init__(self, config: MCPServerConfig) -> None:
         self.config = config
         self.config.validate()
-        self._exit_stack = AsyncExitStack()
+        self._exit_stack: AsyncExitStack | None = None
         self._session: ClientSession | None = None
 
     async def __aenter__(self) -> Self:
+        self._exit_stack = AsyncExitStack()
         if self.config.url is not None:
             read_stream, write_stream = await self._exit_stack.enter_async_context(
                 sse_client(self.config.url)
@@ -71,7 +72,9 @@ class MCPClient:
         exc_val: BaseException | None,
         exc_tb: Any | None,
     ) -> None:
-        await self._exit_stack.aclose()
+        if self._exit_stack is not None:
+            await self._exit_stack.aclose()
+        self._exit_stack = None
         self._session = None
 
     async def list_tools(self) -> list[ToolSpec]:

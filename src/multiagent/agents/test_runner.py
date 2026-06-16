@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import subprocess
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from multiagent.agents.base import Agent
 from multiagent.context.store import ContextStore, Finding
 from multiagent.llm.gateway import LLMGateway
+
+if TYPE_CHECKING:
+    from multiagent.mcp.client import MCPClient
 
 MAX_CODE_CHARS = 12_000
 
@@ -32,7 +37,13 @@ class TestRunnerError(RuntimeError):
 class TestRunnerAgent(Agent):
     __test__ = False
 
-    def __init__(self, llm: LLMGateway) -> None:
+    def __init__(
+        self,
+        llm: LLMGateway,
+        tools: MCPClient | None = None,
+        require_mcp: bool = False,
+    ) -> None:
+        super().__init__(tools=tools, require_mcp=require_mcp)
         self.llm = llm
 
     @property
@@ -40,6 +51,12 @@ class TestRunnerAgent(Agent):
         return "test-runner"
 
     def run(self, context: ContextStore) -> ContextStore:
+        if self.tools is not None:
+            mcp_result = asyncio.run(self._run_mcp_workflow(context))
+            if mcp_result is not None:
+                context.decisions.append(f"MCP Test Analizi Sonuclari:\n{mcp_result}")
+                return context
+
         output = self._run_pytest(context)
         summary = self._parse_pytest_output(output)
 
@@ -54,6 +71,36 @@ class TestRunnerAgent(Agent):
             context.decisions.append(suggestions)
 
         return context
+
+    async def _run_mcp_workflow(self, context: ContextStore) -> str | None:
+        if self.tools is None:
+            return None
+
+        try:
+            async with self.tools:
+                mcp_tools = await self.tools.list_tools()
+                tool_names = {t.name for t in mcp_tools}
+
+                target_tools = ["run_tests", "pytest", "test_runner"]
+                selected_tool = next((t for t in target_tools if t in tool_names), None)
+
+                if not selected_tool:
+                    if self.require_mcp:
+                        raise TestRunnerError("Beklenen MCP araci bulunamadi.")
+                    return None
+
+                result = await self.tools.call_tool(
+                    selected_tool, {"path": str(context.repo_path)}
+                )
+                return result
+        except Exception as exc:
+            if self.require_mcp:
+                raise TestRunnerError(f"MCP araci kullanilamadi: {exc}") from exc
+
+            context.decisions.append(
+                f"MCP araci kullanilamadi, yerel analize donuldu: {exc}"
+            )
+            return None
 
     @staticmethod
     def _run_pytest(context: ContextStore) -> str:
