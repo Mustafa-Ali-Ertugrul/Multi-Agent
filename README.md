@@ -1,4 +1,4 @@
-<h1 align="center">MULTI AGENT</h1>
+<h1 align="center">MULTI-AGENT</h1>
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/Mustafa-Ali-Ertugrul/Multi-Agent/ci.yml?branch=main&style=flat-square" alt="CI Status">
@@ -6,21 +6,34 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 
-![Multi-Agent CLI Terminal Demo](assets/terminal_demo.webp)
+<p align="center">
+  <img src="assets/terminal_demo.webp" alt="Multi-Agent CLI Terminal Demo" style="max-width: 100%;">
+</p>
 
-This project is an intelligent code analysis and automated Pull Request creation tool developed with Python 3.11+. It can autonomously orchestrate external tools using the Model Context Protocol (MCP). The project provides a clean foundation for orchestrating specialized agents (Reviewer, Architect, TestRunner, Build, etc.), LLM integrations, and context management (ContextStore) with strict package boundaries.
+This project is a fully completed, intelligent multi-agent code analysis and automated Pull Request creation tool developed with Python 3.11+. It seamlessly orchestrates specialized agents (Reviewer, Architect, TestRunner, Build, GitHubPR) to scan your codebase, propose architecture improvements, validate tests, and open GitHub Pull Requests completely autonomously using the Model Context Protocol (MCP) and LLM integrations.
 
-## Showcase
+<h2 align="center">Showcase</h2>
+
 > **Note:** The system offers a highly interactive and colorful experience while running. You can easily record an [Asciinema](https://asciinema.org/docs/getting-started) session or create an animated GIF to feature your own demo here.
+> 
+> **Türkçe Özet:** Bu proje tamamlanmış bir multi-agent kod analiz ve otomatik PR aracıdır. Terminal üzerinde oldukça renkli ve etkileşimli bir deneyim sunar. Geliştirmesi bitmiş olup kullanıma hazırdır.
 
-## Features
+### ✓ Completed Features
+
+- [x] **5-Agent Pipeline:** Reviewer, Architect, Test-Runner, Build, and GitHub-PR agents working in harmony.
+- [x] **Local & Remote LLMs:** Out-of-the-box support for local Ollama models (Qwen, Gemma) AND OpenAI-compatible endpoints (Kimchi, Cast.ai).
+- [x] **MCP Integration:** Dynamically connects to external tools (stdio or SSE) with fallback mechanisms.
+- [x] **Automated Pull Requests:** Generates unified diffs and automatically opens PRs on GitHub with rich descriptions.
+- [x] **Robust Configuration:** Managed via `pyproject.toml` and `.multiagent.toml`.
+
+<h2 align="center">Features</h2>
 
 - **5 Distinct Agent Pipelines:** A specialized chain of 5 agents (Reviewer, Architect, Test-runner, Build, GitHub-PR) that step-by-step identifies issues, produces solutions, and applies them to the codebase.
 - **Local LLM Support:** Privacy-focused, offline, and fast code analysis using local models (e.g., Qwen, Gemma) powered by Ollama.
 - **MCP (Model Context Protocol) Support:** Dynamically discovers and utilizes external static analysis tools or test servers. Features an intelligent fallback mechanism to local LLM-based analysis if the external tool is unavailable.
 - **Automated Pull Requests:** Automatically transforms proposed solutions (Unified Diff) into a GitHub Pull Request with a descriptive LLM-generated title and body. Includes a safe `dry_run` mode for testing.
 
-## Architecture and Agent Flow Diagram
+<h2 align="center">Architecture and Agent Flow Diagram</h2>
 
 The diagram below illustrates how the `multiagent` project operates, how agents communicate via the `ContextStore`, and the end-to-end flow:
 
