@@ -40,21 +40,19 @@ def test_build_parser_has_new_arguments() -> None:
 
 def test_analyze_runs_filtered_agents(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(LLMGateway, "from_env", lambda *args, **kwargs: FakeLLM())
-    
+
     executed_agents: list[str] = []
-    
-    def fake_reviewer_run(
-        self: ReviewerAgent, context: ContextStore
-    ) -> ContextStore:
+
+    def fake_reviewer_run(self: ReviewerAgent, context: ContextStore) -> ContextStore:
         executed_agents.append("reviewer")
         return context
+
     monkeypatch.setattr(ReviewerAgent, "run", fake_reviewer_run)
 
-    def fake_architect_run(
-        self: ArchitectAgent, context: ContextStore
-    ) -> ContextStore:
+    def fake_architect_run(self: ArchitectAgent, context: ContextStore) -> ContextStore:
         executed_agents.append("architect")
         return context
+
     monkeypatch.setattr(ArchitectAgent, "run", fake_architect_run)
 
     def fake_test_runner_run(
@@ -62,13 +60,13 @@ def test_analyze_runs_filtered_agents(tmp_path: Path, monkeypatch: MonkeyPatch) 
     ) -> ContextStore:
         executed_agents.append("test-runner")
         return context
+
     monkeypatch.setattr(TestRunnerAgent, "run", fake_test_runner_run)
 
-    def fake_build_run(
-        self: BuildAgent, context: ContextStore
-    ) -> ContextStore:
+    def fake_build_run(self: BuildAgent, context: ContextStore) -> ContextStore:
         executed_agents.append("build")
         return context
+
     monkeypatch.setattr(BuildAgent, "run", fake_build_run)
 
     parser = _build_parser()
