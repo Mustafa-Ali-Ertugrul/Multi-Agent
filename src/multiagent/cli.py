@@ -333,3 +333,6 @@ def _severity_label(severity: str) -> str:
 def _fail(message: str) -> NoReturn:
     console.print(f"[red]Hata:[/red] {message}")
     raise SystemExit(1)
+
+if __name__ == "__main__":
+    main()

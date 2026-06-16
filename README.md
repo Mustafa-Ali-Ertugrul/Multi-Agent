@@ -21,7 +21,7 @@ This project is a fully completed, intelligent multi-agent code analysis and aut
 ### ✓ Completed Features
 
 - [x] **5-Agent Pipeline:** Reviewer, Architect, Test-Runner, Build, and GitHub-PR agents working in harmony.
-- [x] **Local & Remote LLMs:** Out-of-the-box support for local Ollama models (Qwen, Gemma) AND OpenAI-compatible endpoints (Kimchi, Cast.ai).
+- [x] **Local & Remote LLMs:** Out-of-the-box support for local Ollama models (Qwen, Gemma) AND OpenAI-compatible endpoints (OpenAI, Kimi, DeepSeek, etc.).
 - [x] **MCP Integration:** Dynamically connects to external tools (stdio or SSE) with fallback mechanisms.
 - [x] **Automated Pull Requests:** Generates unified diffs and automatically opens PRs on GitHub with rich descriptions.
 - [x] **Robust Configuration:** Managed via `pyproject.toml` and `.multiagent.toml`.

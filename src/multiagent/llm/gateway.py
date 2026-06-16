@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import Self
 
@@ -57,32 +58,44 @@ class LLMGateway:
             "model": self.model,
             "messages": messages,
             "temperature": temperature,
+            "stream": True,
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
 
+        full_content = ""
         try:
-            response = httpx.post(
+            with httpx.stream(
+                "POST",
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=60.0,
-            )
-            response.raise_for_status()
+                timeout=300.0,
+            ) as response:
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if line.startswith("data: ") and line != "data: [DONE]":
+                        try:
+                            chunk = json.loads(line[6:])
+                            delta = chunk["choices"][0].get("delta", {})
+                            if "content" in delta and delta["content"]:
+                                full_content += delta["content"]
+                        except (json.JSONDecodeError, KeyError, IndexError):
+                            pass
         except httpx.HTTPStatusError as exc:
+            # Sadece HTTP hatalarını yakalayıp düzgünce fırlatıyoruz
             raise LLMError(
                 f"OpenAI API error ({exc.response.status_code}): {exc.response.text}"
             ) from exc
         except httpx.RequestError as exc:
             raise LLMError(f"Could not reach API at {self.base_url}: {exc}") from exc
 
-        try:
-            data = response.json()
-            return str(data["choices"][0]["message"]["content"])
-        except (ValueError, KeyError, IndexError) as exc:
-            raise LLMError("API returned an invalid JSON response.") from exc
+        if not full_content:
+            raise LLMError("API returned an empty or invalid stream response.")
+            
+        return full_content
 
     def _chat_ollama(
         self,
@@ -100,7 +113,7 @@ class LLMGateway:
             response = httpx.post(
                 f"{self.base_url}/api/chat",
                 json=payload,
-                timeout=60.0,
+                timeout=300.0,
             )
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
