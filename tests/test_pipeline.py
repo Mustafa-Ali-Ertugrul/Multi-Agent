@@ -112,7 +112,8 @@ def test_github_pr_agent_dry_run(tmp_path: Path, monkeypatch: MonkeyPatch) -> No
 
     context = ContextStore(repo_path=repo_dir)
     context.decisions.append(
-        "Onerilen degisiklik (unified diff):\n--- a/file\n+++ b/file\n@@ -1 +1 @@\n-a\n+b"
+        "Onerilen degisiklik (unified diff):\n"
+        "--- a/file\n+++ b/file\n@@ -1 +1 @@\n-a\n+b"
     )
 
     final_context = agent.run(context)
