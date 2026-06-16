@@ -12,6 +12,7 @@ from rich.table import Table
 from multiagent.agents.architect import ArchitectAgent
 from multiagent.agents.base import Agent
 from multiagent.agents.build import BuildAgent
+from multiagent.agents.github_pr import GitHubPRAgent
 from multiagent.agents.reviewer import ReviewerAgent
 from multiagent.agents.test_runner import TestRunnerAgent
 from multiagent.context.store import ContextStore, Finding
@@ -69,6 +70,22 @@ def _build_parser() -> argparse.ArgumentParser:
         help="BuildAgent'in diff uygulamasini acar.",
     )
     analyze_parser.add_argument(
+        "--open-pr",
+        action="store_true",
+        help=(
+            "GitHubPRAgent'i ekleyerek PR olusturma adimini calistirir "
+            "(varsayilan olarak dry_run)."
+        ),
+    )
+    analyze_parser.add_argument(
+        "--execute-pr",
+        action="store_true",
+        help=(
+            "dry_run modunu kapatarak GitHub uzerinde gercek bir PR acar "
+            "(ortamda GITHUB_TOKEN gerektirir)."
+        ),
+    )
+    analyze_parser.add_argument(
         "--require-mcp",
         action="store_true",
         help="MCP entegrasyonunu zorunlu kilar, mcp arizalanirsa sert hata firlatir.",
@@ -113,17 +130,22 @@ def _analyze(args: argparse.Namespace) -> None:
     )
 
     valid_agent_names = ["reviewer", "architect", "test-runner", "build"]
+    if args.open_pr or args.execute_pr:
+        valid_agent_names.append("github_pr")
 
     if isinstance(args.agents, str) and args.agents.strip():
         requested_names = [
             name.strip().lower() for name in args.agents.split(",") if name.strip()
         ]
         for name in requested_names:
-            if name not in valid_agent_names:
+            if name not in valid_agent_names and name != "github_pr":
                 _fail(
                     f"Gecersiz agent: {name}. Gecerli agent'lar: "
-                    "reviewer, architect, test-runner, build"
+                    "reviewer, architect, test-runner, build, github_pr"
                 )
+        if "github_pr" in requested_names and "github_pr" not in valid_agent_names:
+            valid_agent_names.append("github_pr")
+
         active_names = [name for name in valid_agent_names if name in requested_names]
     else:
         active_names = valid_agent_names
@@ -149,6 +171,14 @@ def _analyze(args: argparse.Namespace) -> None:
             llm=llm, apply=bool(args.apply), tools=mcp_client, require_mcp=require_mcp
         ),
     }
+
+    if "github_pr" in active_names:
+        agents_map["github_pr"] = GitHubPRAgent(
+            llm=llm,
+            dry_run=not bool(args.execute_pr),
+            tools=mcp_client,
+            require_mcp=require_mcp,
+        )
 
     agent_results: list[tuple[str, list[Finding], list[str]]] = []
 
@@ -195,6 +225,7 @@ def _render_result(
         "architect": "Architect Agent (Mimari Incelemesi)",
         "test-runner": "Test-Runner Agent (Test Incelemesi)",
         "build": "Build Agent (Onerilen Unified Diff)",
+        "github_pr": "GitHub PR Agent",
     }
 
     for agent_name, findings, decisions in agent_results:
