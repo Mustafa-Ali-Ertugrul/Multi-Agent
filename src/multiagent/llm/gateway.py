@@ -85,7 +85,6 @@ class LLMGateway:
                         except (json.JSONDecodeError, KeyError, IndexError):
                             pass
         except httpx.HTTPStatusError as exc:
-            # Sadece HTTP hatalarını yakalayıp düzgünce fırlatıyoruz
             raise LLMError(
                 f"OpenAI API error ({exc.response.status_code}): {exc.response.text}"
             ) from exc
@@ -94,7 +93,7 @@ class LLMGateway:
 
         if not full_content:
             raise LLMError("API returned an empty or invalid stream response.")
-            
+
         return full_content
 
     def _chat_ollama(

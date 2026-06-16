@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/terminal_demo.webp" alt="Multi-Agent CLI Terminal Demo" style="max-width: 100%;">
+  <img src="assets/terminal_demo.png" alt="Multi-Agent CLI Terminal Demo" style="max-width: 100%;">
 </p>
 
 This project is a fully completed, intelligent multi-agent code analysis and automated Pull Request creation tool developed with Python 3.11+. It seamlessly orchestrates specialized agents (Reviewer, Architect, TestRunner, Build, GitHubPR) to scan your codebase, propose architecture improvements, validate tests, and open GitHub Pull Requests completely autonomously using the Model Context Protocol (MCP) and LLM integrations.
@@ -15,10 +15,10 @@ This project is a fully completed, intelligent multi-agent code analysis and aut
 <h2 align="center">Showcase</h2>
 
 > **Note:** The system offers a highly interactive and colorful experience while running. You can easily record an [Asciinema](https://asciinema.org/docs/getting-started) session or create an animated GIF to feature your own demo here.
-> 
-> **Türkçe Özet:** Bu proje tamamlanmış bir multi-agent kod analiz ve otomatik PR aracıdır. Terminal üzerinde oldukça renkli ve etkileşimli bir deneyim sunar. Geliştirmesi bitmiş olup kullanıma hazırdır.
+>
+> **Turkish Summary:** Bu proje tamamlanmis bir multi-agent kod analiz ve otomatik PR aracidir. Terminal uzerinde renkli ve etkilesimli bir deneyim sunar. Gelistirmesi bitmis olup kullanima hazirdir.
 
-### ✓ Completed Features
+### Completed Features
 
 - [x] **5-Agent Pipeline:** Reviewer, Architect, Test-Runner, Build, and GitHub-PR agents working in harmony.
 - [x] **Local & Remote LLMs:** Out-of-the-box support for local Ollama models (Qwen, Gemma) AND OpenAI-compatible endpoints (OpenAI, Kimi, DeepSeek, etc.).
@@ -45,16 +45,16 @@ flowchart TD
     subgraph Agent Pipeline
         Orchestrator --> A1[1. ReviewerAgent]
         A1 -->|Static Analysis / Security| Context
-        
+
         Orchestrator --> A2[2. ArchitectAgent]
         A2 -->|Architecture Analysis / Design| Context
-        
+
         Orchestrator --> A3[3. TestRunnerAgent]
         A3 -->|Test Execution / Error Output| Context
-        
+
         Orchestrator --> A4[4. BuildAgent]
         A4 -->|Unified Diff Generation / Apply| Context
-        
+
         Orchestrator --> A5[5. GitHubPRAgent]
         A5 -->|Branch / Commit / Open PR| Repo
     end
