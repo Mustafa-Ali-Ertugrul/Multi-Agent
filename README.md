@@ -9,51 +9,51 @@
 <p align="center">
   <img src="assets/terminal_demo.webp" alt="Multi-Agent CLI Terminal Demo" width="800"/>
   <br>
-  <em>Multi-Agent CLI - Otonom Kod İyileştirme ve PR Oluşturma</em>
+  <em>Multi-Agent CLI - Autonomous Code Improvement and PR Generation</em>
 </p>
 
-`multiagent`, Python 3.11+ ile geliştirilmiş, harici araçları (MCP) otonom şekilde yönetebilen akıllı bir kod analiz ve otomatik PR oluşturma aracıdır. Farklı uzmanlıktaki ajanların (Reviewer, Architect, TestRunner, vb.) orkestrasyonunu, LLM entegrasyonlarını ve bağlam yönetimini (ContextStore) temiz paket sınırlarıyla sunar.
+`multiagent` is an intelligent code analysis and automated Pull Request creation tool developed with Python 3.11+. It can autonomously orchestrate external tools using the Model Context Protocol (MCP). The project provides a clean foundation for orchestrating specialized agents (Reviewer, Architect, TestRunner, Build, etc.), LLM integrations, and context management (ContextStore) with strict package boundaries.
 
-## Sergileme (Showcase)
-> **Not:** Sistem çalışırken çok daha zengin bir etkileşim sunar. Asciinema kaydı veya hareketli bir GIF hazırlayarak bu bölüme ekleyebilirsiniz. [Asciinema ile nasıl kaydedilir?](https://asciinema.org/docs/getting-started)
+## Showcase
+> **Note:** The system offers a highly interactive and colorful experience while running. You can easily record an [Asciinema](https://asciinema.org/docs/getting-started) session or create an animated GIF to feature your own demo here.
 
-## Özellikler
+## Features
 
-- **5 Farklı Agent Pipeline'ı:** Projedeki sorunları adım adım tespit eden, çözüm üreten ve kod tabanına uygulayan özelleştirilmiş 5 ajandan oluşan zincir (Reviewer, Architect, Test-runner, Build, GitHub-PR).
-- **Yerel LLM Desteği:** Ollama gibi yerel modeller (ör. Qwen, Gemma) ile gizlilik odaklı ve hızlı çevrimdışı kod analizi.
-- **MCP (Model Context Protocol) Desteği:** Harici statik analiz araçlarını (sunucularını) dinamik olarak keşfedip kullanma. Araç bulunamazsa akıllı şekilde LLM/Yerel tabanlı analize geri dönme (fallback) yeteneği.
-- **Otomatik Pull Request:** Çözüm önerilerini (Unified Diff) otomatik olarak GitHub üzerinden bir Pull Request'e dönüştürme ve dry_run modlarıyla güvenli test imkanı.
+- **5 Distinct Agent Pipelines:** A specialized chain of 5 agents (Reviewer, Architect, Test-runner, Build, GitHub-PR) that step-by-step identifies issues, produces solutions, and applies them to the codebase.
+- **Local LLM Support:** Privacy-focused, offline, and fast code analysis using local models (e.g., Qwen, Gemma) powered by Ollama.
+- **MCP (Model Context Protocol) Support:** Dynamically discovers and utilizes external static analysis tools or test servers. Features an intelligent fallback mechanism to local LLM-based analysis if the external tool is unavailable.
+- **Automated Pull Requests:** Automatically transforms proposed solutions (Unified Diff) into a GitHub Pull Request with a descriptive LLM-generated title and body. Includes a safe `dry_run` mode for testing.
 
-## Mimari ve Agent Akış Diyagramı
+## Architecture and Agent Flow Diagram
 
-Aşağıdaki diyagramda `multiagent` projesinin nasıl çalıştığı, ajanların `ContextStore` üzerinden nasıl haberleştiği ve uçtan uca akışı gösterilmektedir:
+The diagram below illustrates how the `multiagent` project operates, how agents communicate via the `ContextStore`, and the end-to-end flow:
 
 ```mermaid
 flowchart TD
-    Repo[(Kod Deposu)] -->|Dosyalar & Bilgiler| Context(ContextStore)
+    Repo[(Code Repository)] -->|Files & Metadata| Context(ContextStore)
     Context --> Orchestrator
 
     subgraph Agent Pipeline
         Orchestrator --> A1[1. ReviewerAgent]
-        A1 -->|Statik Analiz / Güvenlik| Context
+        A1 -->|Static Analysis / Security| Context
         
         Orchestrator --> A2[2. ArchitectAgent]
-        A2 -->|Mimari Analiz / Tasarım| Context
+        A2 -->|Architecture Analysis / Design| Context
         
         Orchestrator --> A3[3. TestRunnerAgent]
-        A3 -->|Test Koşumu / Hata Çıktısı| Context
+        A3 -->|Test Execution / Error Output| Context
         
         Orchestrator --> A4[4. BuildAgent]
-        A4 -->|Unified Diff Üretimi / Kod Güncelleme| Context
+        A4 -->|Unified Diff Generation / Apply| Context
         
         Orchestrator --> A5[5. GitHubPRAgent]
-        A5 -->|Branch Açma / Commit / PR| Repo
+        A5 -->|Branch / Commit / Open PR| Repo
     end
 ```
 
-*(Her agent sırayla çalışarak `ContextStore` üzerinde bulgular (findings) ve kararlar (decisions) biriktirir.)*
+*(Each agent runs sequentially, accumulating findings and decisions in the ContextStore.)*
 
-## Kurulum
+## Installation
 
 ```bash
 python -m venv .venv
@@ -69,54 +69,54 @@ python -m venv .venv
 pip install -e ".[dev]"
 ```
 
-Ollama'nın yerelde çalıştığından ve kullanmak istediğiniz modelin indirildiğinden emin olun:
+Make sure Ollama is running locally and the target model is pulled:
 
 ```bash
 ollama pull qwen2.5-coder
 ```
 
-## Kullanım
+## Usage
 
-### CLI Bayrakları ve Açıklamaları
+### CLI Flags and Descriptions
 
-Aşağıdaki tabloda `multiagent analyze` komutuna verebileceğiniz temel konfigürasyon seçenekleri listelenmiştir:
+The following table lists the core configuration options available for the `multiagent analyze` command:
 
-| Bayrak | Açıklama | Örnek |
+| Flag | Description | Example |
 | --- | --- | --- |
-| `--model` | Kullanılacak yerel LLM modelinin adı. Ortam değişkeninden (`MULTIAGENT_MODEL`) önceliklidir. | `--model gemma2` |
-| `--agents` | Çalıştırılacak ajanların adlarını virgülle ayırarak seçmenizi sağlar. Belirtilmezse varsayılan liste çalışır. | `--agents reviewer,build` |
-| `--apply` | BuildAgent'ın ürettiği unified diff'i repo üzerindeki dosyalara kalıcı olarak uygular. | `--apply` |
-| `--open-pr` | Zincire `GitHubPRAgent`'i dahil eder. Aksi belirtilmedikçe (execute-pr yoksa) sadece dry-run yapar, log atar. | `--open-pr` |
-| `--execute-pr` | GitHubPRAgent'ın dry-run modunu kapatarak **gerçek** bir GitHub PR açmasını sağlar. | `--execute-pr` |
-| `--require-mcp` | MCP sunucusunun bulunmasını veya çalışmasını zorunlu kılar. MCP arızalanırsa süreç hata fırlatarak durur. | `--require-mcp` |
-| `--mcp-command` | MCP (stdio tabanlı) sunucusunu başlatacak komut (ör. `node`, `python`). | `--mcp-command "node"` |
-| `--mcp-args` | Başlatılan MCP sunucusuna gönderilecek argümanlar. Boşlukla ayrılır. | `--mcp-args "server.js"` |
-| `--mcp-url` | Eğer MCP sunucusu SSE tabanlı veya HTTP arkasındaysa bağlantı kurulacak URL. | `--mcp-url "http://localhost:8000/sse"` |
+| `--model` | Name of the local LLM to use. Overrides the `MULTIAGENT_MODEL` environment variable. | `--model gemma2` |
+| `--agents` | Comma-separated list of agents to run. Runs the default pipeline if not specified. | `--agents reviewer,build` |
+| `--apply` | Permanently applies the unified diff generated by the BuildAgent to the repository files. | `--apply` |
+| `--open-pr` | Appends `GitHubPRAgent` to the pipeline. Performs a dry-run and logs output unless `--execute-pr` is provided. | `--open-pr` |
+| `--execute-pr` | Disables the dry-run mode of GitHubPRAgent and opens an **actual** GitHub Pull Request. | `--execute-pr` |
+| `--require-mcp` | Forces the system to require an MCP server. Aborts with a hard error if the MCP server fails. | `--require-mcp` |
+| `--mcp-command` | Command to start the MCP (stdio-based) server (e.g., `node`, `python`). | `--mcp-command "node"` |
+| `--mcp-args` | Arguments to pass to the MCP stdio server, separated by spaces. | `--mcp-args "server.js"` |
+| `--mcp-url` | URL to connect to if the MCP server is operating over SSE/HTTP. | `--mcp-url "http://localhost:8000/sse"` |
 
-### Uçtan Uca Çalıştırma (End-to-End)
+### End-to-End Execution
 
-Tüm zinciri uçtan uca çalıştırmak, otomatik olarak diff uygulayıp GitHub üzerinde Pull Request (PR) açmak için:
+To run the complete pipeline end-to-end, automatically apply the diff, and open a Pull Request on GitHub:
 
 ```bash
-export GITHUB_TOKEN="ghp_xxx_sizin_tokeniniz_xxx"
+export GITHUB_TOKEN="ghp_xxx_your_token_xxx"
 multiagent analyze . \
     --apply \
     --open-pr \
     --execute-pr
 ```
 
-### GITHUB_TOKEN Kullanımı
+### GITHUB_TOKEN Usage
 
-Eğer `GitHubPRAgent`'in gerçek bir PR açmasını (veya salt-okunur dry-run senaryosunda yetki hatası almasını engellemek) isterseniz, GitHub ortam değişkeni olarak `GITHUB_TOKEN` belirtmelisiniz:
+If you want `GitHubPRAgent` to open a real PR (or to prevent permission errors during a read-only dry-run), you must provide your GitHub token via the `GITHUB_TOKEN` environment variable:
 
 ```bash
 export GITHUB_TOKEN="ghp_xxxxxx"
 multiagent analyze . --open-pr
 ```
 
-### MCP (Model Context Protocol) Yapılandırması
+### MCP (Model Context Protocol) Configuration
 
-Agent'lar, sunulan MCP (Model Context Protocol) araçlarını kullanarak dış analizler (statik analiz, test vs.) yapabilirler. Örnek bir Node tabanlı MCP sunucusuna (`stdio` ile) bağlanmak için:
+Agents can leverage external analysis tools (static analysis, testing, etc.) provided by an MCP server. To connect to an example Node-based MCP server via `stdio`:
 
 ```bash
 multiagent analyze . \
@@ -124,14 +124,14 @@ multiagent analyze . \
     --mcp-args "path/to/mcp/server.js"
 ```
 
-Eğer MCP sunucusuna SSE üzerinden bağlanacaksanız:
+If you are connecting to an MCP server via SSE:
 
 ```bash
 multiagent analyze . \
     --mcp-url "http://localhost:8000/sse"
 ```
 
-## Geliştirme ve Test
+## Development and Testing
 
 ```bash
 ruff check .
@@ -140,9 +140,9 @@ mypy src tests
 pytest
 ```
 
-## Katkı
+## Contribution
 
-Katkı göndermeden önce kalite kontrollerini çalıştırın:
+Please run the quality checks before submitting a contribution:
 
 ```bash
 ruff check .
@@ -151,4 +151,4 @@ mypy src tests
 pytest
 ```
 
-Yeni agent veya gateway davranışı eklerken ilgili birim testlerini de ekleyin. `mypy` CI'da bloklayıcıdır, bu yüzden public API'lerde ve test yardımcılarında tip ipuçlarını eksiksiz tutun.
+When adding a new agent or gateway behavior, please include the relevant unit tests. `mypy` is a blocking step in the CI, so ensure type hints are comprehensive in public APIs and test helpers.
