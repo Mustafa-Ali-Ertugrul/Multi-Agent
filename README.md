@@ -1,8 +1,17 @@
 # multiagent
 
+<p align="center">
+  <img src="assets/terminal_demo.jpg" alt="Multi-Agent CLI Terminal Demo" width="800"/>
+  <br>
+  <em>Multi-Agent CLI - Otonom Kod İyileştirme ve PR Oluşturma</em>
+</p>
+
 `multiagent`, Python 3.11+ ile geliştirilecek multi-agent kod analiz aracı için başlangıç iskeletidir.
 
 Amaç, farklı ajanların orkestrasyonunu, LLM entegrasyonlarını, MCP bağlantılarını, araçları ve bağlam yönetimini temiz paket sınırlarıyla geliştirmeye uygun bir temel sağlamaktır.
+
+## Sergileme (Showcase)
+> **Not:** Sistem çalışırken çok daha zengin bir etkileşim sunar. Asciinema kaydı veya hareketli bir GIF hazırlayarak bu bölüme ekleyebilirsiniz. [Asciinema ile nasıl kaydedilir?](https://asciinema.org/docs/getting-started)
 
 ## Özellikler
 
