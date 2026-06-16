@@ -6,15 +6,9 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
 </p>
 
-<p align="center">
-  <img src="assets/multiagent_cli_demo.png" alt="Multi-Agent CLI Terminal Demo" style="max-width: 100%; height: auto;">
-</p>
+![Multi-Agent CLI Terminal Demo](assets/multiagent_cli_demo.png)
 
-<p align="center">
-  <em>MULTI AGENT - Autonomous Code Improvement and PR Generation</em>
-</p>
-
-`multiagent` is an intelligent code analysis and automated Pull Request creation tool developed with Python 3.11+. It can autonomously orchestrate external tools using the Model Context Protocol (MCP). The project provides a clean foundation for orchestrating specialized agents (Reviewer, Architect, TestRunner, Build, etc.), LLM integrations, and context management (ContextStore) with strict package boundaries.
+This project is an intelligent code analysis and automated Pull Request creation tool developed with Python 3.11+. It can autonomously orchestrate external tools using the Model Context Protocol (MCP). The project provides a clean foundation for orchestrating specialized agents (Reviewer, Architect, TestRunner, Build, etc.), LLM integrations, and context management (ContextStore) with strict package boundaries.
 
 ## Showcase
 > **Note:** The system offers a highly interactive and colorful experience while running. You can easily record an [Asciinema](https://asciinema.org/docs/getting-started) session or create an animated GIF to feature your own demo here.
