@@ -2,6 +2,8 @@
 
 import logging
 
+import pytest
+
 from multiagent.log import configure_logging, get_logger
 
 
@@ -29,7 +31,7 @@ def test_configure_logging_rejects_invalid_level() -> None:
     assert raised is True
 
 
-def test_logger_emits_records(caplog) -> None:
+def test_logger_emits_records(caplog: pytest.LogCaptureFixture) -> None:
     """get_logger ile üretilen kayitlar caplog ile yakalanabilmeli."""
     configure_logging("DEBUG")
     log = get_logger("captest")

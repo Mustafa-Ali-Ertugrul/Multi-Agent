@@ -16,7 +16,13 @@ class AgentError(RuntimeError):
     and decide whether to continue or abort the pipeline.
     """
 
-    def __init__(self, agent_name: str, message: str, *, cause: Exception | None = None) -> None:
+    def __init__(
+        self,
+        agent_name: str,
+        message: str,
+        *,
+        cause: Exception | None = None,
+    ) -> None:
         self.agent_name = agent_name
         super().__init__(f"[{agent_name}] {message}")
         if cause is not None:

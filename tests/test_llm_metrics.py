@@ -1,7 +1,5 @@
 """Tests for LLM call metrics (Faz 2.3)."""
 
-from unittest.mock import patch
-
 from multiagent.llm.gateway import LLMError, LLMGateway
 
 
@@ -13,12 +11,20 @@ class _StubGateway(LLMGateway):
         super().__init__(model="stub", base_url="http://stub")
         self.fail = fail
 
-    def _chat_openai(self, messages, temperature):  # type: ignore[override]
+    def _chat_openai(
+        self,
+        messages: list[dict[str, object]],
+        temperature: float,
+    ) -> str:
         if self.fail:
             raise LLMError("stub failure")
         return "ok-response"
 
-    def _chat_ollama(self, messages, temperature):  # type: ignore[override]
+    def _chat_ollama(
+        self,
+        messages: list[dict[str, object]],
+        temperature: float,
+    ) -> str:
         if self.fail:
             raise LLMError("stub failure")
         return "ok-response"
@@ -53,7 +59,7 @@ def test_metrics_recorded_on_failure() -> None:
     assert gw.metrics.total_calls == 1
     assert gw.metrics.failed_calls == 1
     assert gw.metrics.calls[0].error is not None
-    assert "stub failure" in gw.metrics.calls[0].error  # type: ignore[operator]
+    assert "stub failure" in gw.metrics.calls[0].error
     assert gw.metrics.calls[0].response_chars == 0
 
 
