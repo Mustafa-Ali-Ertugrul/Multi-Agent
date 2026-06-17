@@ -7,8 +7,8 @@ from typing import Any
 from pytest import MonkeyPatch
 
 from multiagent.agents.reviewer import ReviewerAgent
-from multiagent.context.store import ContextStore
-from multiagent.llm.gateway import LLMGateway
+from multiagent.context.store import ContextStore, Finding
+from multiagent.llm.gateway import LLMError, LLMGateway
 
 
 class FakeLLM(LLMGateway):
@@ -41,17 +41,14 @@ def test_reviewer_converts_bandit_results_to_findings(
         "]}"
     )
 
-    def fake_run(
-        args: list[str],
-        capture_output: bool,
-        check: bool,
-        text: bool,
-    ) -> subprocess.CompletedProcess[str]:
-        assert args == ["bandit", "-f", "json", "-q", str(source_path)]
-        assert capture_output is True
-        assert check is False
-        assert text is True
-        return subprocess.CompletedProcess(args=args, returncode=1, stdout=bandit_json)
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        cmd = args[0]
+        assert cmd == ["bandit", "-f", "json", "-q", str(source_path)]
+        assert kwargs["capture_output"] is True
+        assert kwargs["check"] is False
+        assert kwargs["text"] is True
+        assert "timeout" in kwargs
+        return subprocess.CompletedProcess(args=cmd, returncode=1, stdout=bandit_json)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
 
@@ -87,6 +84,33 @@ def test_reviewer_mcp_success(tmp_path: Path) -> None:
 
     assert "MCP Guvenlik Analizi Sonuclari:\nMCP security OK" in result.decisions
     tools.call_tool.assert_awaited_once_with("security_scan", {"path": str(tmp_path)})
+
+
+def test_reviewer_falls_back_when_llm_is_unavailable() -> None:
+    class BrokenLLM(LLMGateway):
+        def __init__(self) -> None:
+            pass
+
+        def chat(
+            self,
+            messages: list[dict[str, object]],
+            temperature: float = 0.2,
+        ) -> str:
+            raise LLMError("offline")
+
+    agent = ReviewerAgent(llm=BrokenLLM())
+    finding = Finding(
+        severity="high",
+        file="app.py",
+        line=1,
+        message="problem",
+        source="bandit:B1",
+    )
+
+    summary = agent._summarize_findings([finding])
+
+    assert "Bandit bulgulari" in summary
+    assert "bandit:B1" in summary
 
 
 def test_reviewer_mcp_fallback(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

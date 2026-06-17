@@ -1,6 +1,14 @@
 from pathlib import Path
 
-from multiagent.context.store import ContextStore, Finding
+from multiagent.context.store import (
+    BenchmarkResult,
+    ContextStore,
+    Finding,
+    KnowledgeEdge,
+    KnowledgeNode,
+    MemoryRecord,
+    RepoGraph,
+)
 
 
 def test_load_repo_reads_python_files_and_skips_excluded_dirs(tmp_path: Path) -> None:
@@ -44,7 +52,7 @@ def test_load_repo_skips_excluded_dirs_at_any_depth(tmp_path: Path) -> None:
 
 
 def test_json_round_trip(tmp_path: Path) -> None:
-    store = ContextStore(repo_path=tmp_path)
+    store = ContextStore(repo_path=tmp_path, task="auth task", run_id="run-1")
     store.files["src/app.py"] = "print('hello')\n"
     store.add_finding(
         Finding(
@@ -56,6 +64,48 @@ def test_json_round_trip(tmp_path: Path) -> None:
         )
     )
     store.decisions.append("Keep the first implementation small.")
+    store.memories.append(
+        MemoryRecord(
+            id=1,
+            repo_path=str(tmp_path),
+            task="auth task",
+            kind="decision",
+            content="Use JWT.",
+            tags=["auth"],
+            created_at=1.0,
+        )
+    )
+    store.add_trace("security", "run", "enabled")
+    store.knowledge_graph = RepoGraph(
+        nodes=[
+            KnowledgeNode(
+                id="file:src/app.py",
+                kind="file",
+                name="src/app.py",
+                file="src/app.py",
+                line=1,
+            )
+        ],
+        edges=[
+            KnowledgeEdge(
+                source="file:src/app.py",
+                target="call:print",
+                kind="calls",
+            )
+        ],
+    )
+    store.benchmark_results.append(
+        BenchmarkResult(
+            name="qwen",
+            provider="ollama",
+            model="qwen",
+            score=80.0,
+            duration_seconds=1.0,
+            tests_passed=True,
+            diff_generated=True,
+            high_security_findings=0,
+        )
+    )
 
     output_path = tmp_path / "context.json"
     store.save(output_path)
@@ -66,3 +116,7 @@ def test_json_round_trip(tmp_path: Path) -> None:
     assert loaded.files == store.files
     assert loaded.findings == store.findings
     assert loaded.decisions == store.decisions
+    assert loaded.memories == store.memories
+    assert loaded.agent_trace == store.agent_trace
+    assert loaded.knowledge_graph == store.knowledge_graph
+    assert loaded.benchmark_results == store.benchmark_results

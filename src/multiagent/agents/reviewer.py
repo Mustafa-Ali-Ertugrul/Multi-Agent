@@ -8,10 +8,12 @@ from typing import TYPE_CHECKING, Any
 
 from multiagent.agents.base import Agent
 from multiagent.context.store import ContextStore, Finding
-from multiagent.llm.gateway import LLMGateway
+from multiagent.llm.gateway import LLMError, LLMGateway
 
 if TYPE_CHECKING:
     from multiagent.mcp.client import MCPClient
+
+BANDIT_TIMEOUT = 60
 
 
 class ReviewerError(RuntimeError):
@@ -105,11 +107,16 @@ class ReviewerAgent(Agent):
                 capture_output=True,
                 check=False,
                 text=True,
+                timeout=BANDIT_TIMEOUT,
             )
         except FileNotFoundError as exc:
             raise ReviewerError(
                 "Bandit kurulu degil veya PATH icinde bulunamadi. "
                 "Kurmak icin: pip install bandit"
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise ReviewerError(
+                f"Bandit {BANDIT_TIMEOUT} saniye sure sinirini asti."
             ) from exc
 
         if result.returncode not in (0, 1):
@@ -181,16 +188,27 @@ class ReviewerAgent(Agent):
                 "rapor olarak ozetle:\n" + "\n".join(lines)
             )
 
-        return self.llm.chat(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Kisa, net ve Turkce guvenlik inceleme raporlari yaz.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.2,
-        )
+        try:
+            return self.llm.chat(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Kisa, net ve Turkce guvenlik inceleme raporlari yaz."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.2,
+            )
+        except LLMError:
+            if not findings:
+                return "Bandit guvenlik bulgusu uretmedi."
+            return "Bandit bulgulari:\n" + "\n".join(
+                f"- [{finding.severity}] {finding.file}:{finding.line} "
+                f"{finding.message} ({finding.source})"
+                for finding in findings
+            )
 
     @staticmethod
     def _read_str(data: dict[str, Any], key: str) -> str:

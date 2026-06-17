@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from multiagent.agents.base import Agent
 from multiagent.context.store import ContextStore
-from multiagent.llm.gateway import LLMGateway
+from multiagent.llm.gateway import LLMError, LLMGateway
 
 if TYPE_CHECKING:
     from multiagent.mcp.client import MCPClient
@@ -40,26 +40,32 @@ class ArchitectAgent(Agent):
             )
             return context
 
-        report = self.llm.chat(
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "Kisa, net ve Turkce mimari inceleme raporlari yaz. "
-                        "Katman ayrimi, bagimlilik yonu ve refactor firsatlarini "
-                        "degerlendir."
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        "Asagidaki Python repo yapisini incele ve kisa bir "
-                        "mimari iyilestirme raporu uret:\n\n" + "\n\n".join(summaries)
-                    ),
-                },
-            ],
-            temperature=0.2,
-        )
+        try:
+            report = self.llm.chat(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Kisa, net ve Turkce mimari inceleme raporlari yaz. "
+                            "Katman ayrimi, bagimlilik yonu ve refactor firsatlarini "
+                            "degerlendir."
+                        ),
+                    },
+                    {
+                        "role": "user",
+                        "content": (
+                            "Asagidaki Python repo yapisini incele ve kisa bir "
+                            "mimari iyilestirme raporu uret:\n\n"
+                            + ArchitectAgent._memory_context(context)
+                            + ArchitectAgent._graph_context(context)
+                            + "\n\n".join(summaries)
+                        ),
+                    },
+                ],
+                temperature=0.2,
+            )
+        except LLMError:
+            report = "Mimari inceleme ozeti:\n" + "\n\n".join(summaries)
         context.decisions.append(report)
         return context
 
@@ -102,3 +108,16 @@ class ArchitectAgent(Agent):
         if not items:
             return "-"
         return ", ".join(items)
+
+    @staticmethod
+    def _memory_context(context: ContextStore) -> str:
+        if not context.memories:
+            return ""
+        lines = "\n".join(f"- {memory.content}" for memory in context.memories[:5])
+        return f"Kalici hafiza:\n{lines}\n\n"
+
+    @staticmethod
+    def _graph_context(context: ContextStore) -> str:
+        if context.knowledge_graph is None:
+            return ""
+        return f"Repo knowledge graph ozeti:\n{context.knowledge_graph.summary()}\n\n"

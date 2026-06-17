@@ -45,20 +45,16 @@ def test_test_runner_parses_pytest_failure_and_requests_suggestions(
         ]
     )
 
-    def fake_run(
-        args: list[str],
-        cwd: Path,
-        capture_output: bool,
-        check: bool,
-        text: bool,
-    ) -> subprocess.CompletedProcess[str]:
-        assert args == ["pytest"]
-        assert cwd == tmp_path
-        assert capture_output is True
-        assert check is False
-        assert text is True
+    def fake_run(*args: Any, **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        cmd = args[0]
+        assert cmd == ["pytest"]
+        assert kwargs["cwd"] == tmp_path
+        assert kwargs["capture_output"] is True
+        assert kwargs["check"] is False
+        assert kwargs["text"] is True
+        assert "timeout" in kwargs
         return subprocess.CompletedProcess(
-            args=args,
+            args=cmd,
             returncode=1,
             stdout=pytest_output,
         )

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from multiagent.mcp.client import MCPClient
 
 MAX_CODE_CHARS = 12_000
+PYTEST_TIMEOUT = 120
 
 
 @dataclass(frozen=True)
@@ -113,11 +114,16 @@ class TestRunnerAgent(Agent):
                 capture_output=True,
                 check=False,
                 text=True,
+                timeout=PYTEST_TIMEOUT,
             )
         except FileNotFoundError as exc:
             raise TestRunnerError(
                 "pytest kurulu degil veya PATH icinde bulunamadi. "
                 "Kurmak icin: pip install pytest"
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise TestRunnerError(
+                f"pytest {PYTEST_TIMEOUT} saniye sure sinirini asti."
             ) from exc
 
         return f"{result.stdout}\n{result.stderr}".strip()

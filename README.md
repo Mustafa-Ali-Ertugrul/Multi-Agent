@@ -32,6 +32,7 @@ This project is a fully completed, intelligent multi-agent code analysis and aut
 - **Local LLM Support:** Privacy-focused, offline, and fast code analysis using local models (e.g., Qwen, Gemma) powered by Ollama.
 - **MCP (Model Context Protocol) Support:** Dynamically discovers and utilizes external static analysis tools or test servers. Features an intelligent fallback mechanism to local LLM-based analysis if the external tool is unavailable.
 - **Automated Pull Requests:** Automatically transforms proposed solutions (Unified Diff) into a GitHub Pull Request with a descriptive LLM-generated title and body. Includes a safe `dry_run` mode for testing.
+- **v0.2 Platform Mode:** Adds persistent SQLite memory, deterministic coordinator routing, dedicated security scanning, AST-based repo knowledge graphs, and multi-model benchmark scoring.
 
 <h2 align="center">Architecture and Agent Flow Diagram</h2>
 
@@ -101,6 +102,33 @@ The following table lists the core configuration options available for the `mult
 | `--mcp-command` | Command to start the MCP (stdio-based) server (e.g., `node`, `python`). | `--mcp-command "node"` |
 | `--mcp-args` | Arguments to pass to the MCP stdio server, separated by spaces. | `--mcp-args "server.js"` |
 | `--mcp-url` | URL to connect to if the MCP server is operating over SSE/HTTP. | `--mcp-url "http://localhost:8000/sse"` |
+| `--coordinator` | Uses CoordinatorAgent to decide which agents run, skip, or rerun. | `--coordinator` |
+| `--task` | Describes the current task for memory, coordinator, and benchmark flows. | `--task "harden authentication"` |
+| `--memory` | Enables persistent SQLite memory at `.multiagent/memory.sqlite` by default. | `--memory` |
+| `--security` | Runs SecurityAgent checks for secrets, SQLi, SSRF, XSS, and dependency audit status. | `--security` |
+| `--knowledge-graph` | Builds an AST-based repo graph used by ArchitectAgent and BuildAgent. | `--knowledge-graph` |
+
+### Platform Mode
+
+Run the autonomous secure engineering flow with coordinator routing, memory, security, and graph context:
+
+```bash
+multiagent analyze . \
+    --coordinator \
+    --memory \
+    --security \
+    --knowledge-graph \
+    --task "harden authentication and tests"
+```
+
+Benchmark multiple model adapters on the same task without mutating the real repository:
+
+```bash
+multiagent benchmark . \
+    --task "fix failing tests" \
+    --models qwen,deepseek,gemini \
+    --json-out benchmark.json
+```
 
 ### End-to-End Execution
 
