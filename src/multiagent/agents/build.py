@@ -269,9 +269,7 @@ class UnifiedDiffApplier:
         return updated
 
     @staticmethod
-    def _safe_target(
-        repo_path: Path, relative_path: str, is_new: bool = False
-    ) -> Path:
+    def _safe_target(repo_path: Path, relative_path: str, is_new: bool = False) -> Path:
         path = Path(relative_path)
         if path.is_absolute() or ".." in path.parts:
             raise BuildError(f"Guvenli olmayan diff yolu: {relative_path}")

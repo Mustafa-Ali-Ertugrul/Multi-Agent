@@ -150,9 +150,7 @@ class GitHubPRAgent(Agent):
         try:
             UnifiedDiffApplier.apply(context.repo_path, diff)
         except BuildError as exc:
-            raise GitHubPRError(
-                f"Diff uygulanamadi, PR iptal edildi: {exc}"
-            ) from exc
+            raise GitHubPRError(f"Diff uygulanamadi, PR iptal edildi: {exc}") from exc
 
     def _commit_and_push(self, repo_path: Path, branch_name: str, message: str) -> None:
         try:

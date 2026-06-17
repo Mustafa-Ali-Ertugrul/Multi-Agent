@@ -198,9 +198,7 @@ class SecurityAgent(Agent):
                     severity="low",
                     file="dependencies",
                     line=0,
-                    message=(
-                        f"Dependency audit timed out after {PIP_AUDIT_TIMEOUT}s."
-                    ),
+                    message=(f"Dependency audit timed out after {PIP_AUDIT_TIMEOUT}s."),
                     source="security:cve",
                 )
             )

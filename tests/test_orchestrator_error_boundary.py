@@ -95,6 +95,7 @@ def test_continue_on_error_records_trace_and_continues(tmp_path: Path) -> None:
 
 def test_agent_error_propagates_directly(tmp_path: Path) -> None:
     """AgentError doğrudan propagate olur (çift sarmalanmaz)."""
+
     class AgentRaisingAgentError(Agent):
         @property
         def name(self) -> str:

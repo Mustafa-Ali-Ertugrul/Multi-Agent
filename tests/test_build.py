@@ -82,12 +82,7 @@ def test_unified_diff_applier_creates_new_file_in_nested_dir(tmp_path: Path) -> 
     """Yeni dosya icin ara dizinler otomatik olusturulur."""
     from multiagent.agents.build import UnifiedDiffApplier
 
-    new_diff = (
-        "--- /dev/null\n"
-        "+++ b/utils/helpers.py\n"
-        "@@ -0,0 +1,1 @@\n"
-        "+x = 1\n"
-    )
+    new_diff = "--- /dev/null\n+++ b/utils/helpers.py\n@@ -0,0 +1,1 @@\n+x = 1\n"
 
     UnifiedDiffApplier.apply(tmp_path, new_diff)
 
@@ -102,12 +97,7 @@ def test_unified_diff_applier_rejects_path_traversal_in_new_file(
     """Yeni dosya yolu da repo disina cikamaz."""
     from multiagent.agents.build import BuildError, UnifiedDiffApplier
 
-    bad_diff = (
-        "--- /dev/null\n"
-        "+++ b/../escape.py\n"
-        "@@ -0,0 +1,1 @@\n"
-        "+x = 1\n"
-    )
+    bad_diff = "--- /dev/null\n+++ b/../escape.py\n@@ -0,0 +1,1 @@\n+x = 1\n"
 
     import pytest
 
