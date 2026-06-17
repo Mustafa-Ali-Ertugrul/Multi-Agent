@@ -55,3 +55,61 @@ def test_build_agent_adds_suggested_diff_without_applying_it(tmp_path: Path) -> 
     assert "--- a/app.py" in result.decisions[-1]
     assert len(llm.messages) == 2
     assert "Return value should be updated." in str(llm.messages[1]["content"])
+
+
+def test_unified_diff_applier_creates_new_file(tmp_path: Path) -> None:
+    """--- /dev/null diff'i yeni dosya olusturur."""
+    from multiagent.agents.build import UnifiedDiffApplier
+
+    new_diff = (
+        "--- /dev/null\n"
+        "+++ b/new_module.py\n"
+        "@@ -0,0 +1,3 @@\n"
+        "+def greet() -> str:\n"
+        '+    return "hi"\n'
+        "+\n"
+    )
+
+    UnifiedDiffApplier.apply(tmp_path, new_diff)
+
+    created = tmp_path / "new_module.py"
+    assert created.exists()
+    expected = 'def greet() -> str:\n    return "hi"\n\n'
+    assert created.read_text(encoding="utf-8") == expected
+
+
+def test_unified_diff_applier_creates_new_file_in_nested_dir(tmp_path: Path) -> None:
+    """Yeni dosya icin ara dizinler otomatik olusturulur."""
+    from multiagent.agents.build import UnifiedDiffApplier
+
+    new_diff = (
+        "--- /dev/null\n"
+        "+++ b/utils/helpers.py\n"
+        "@@ -0,0 +1,1 @@\n"
+        "+x = 1\n"
+    )
+
+    UnifiedDiffApplier.apply(tmp_path, new_diff)
+
+    created = tmp_path / "utils" / "helpers.py"
+    assert created.exists()
+    assert created.read_text(encoding="utf-8") == "x = 1\n"
+
+
+def test_unified_diff_applier_rejects_path_traversal_in_new_file(
+    tmp_path: Path,
+) -> None:
+    """Yeni dosya yolu da repo disina cikamaz."""
+    from multiagent.agents.build import BuildError, UnifiedDiffApplier
+
+    bad_diff = (
+        "--- /dev/null\n"
+        "+++ b/../escape.py\n"
+        "@@ -0,0 +1,1 @@\n"
+        "+x = 1\n"
+    )
+
+    import pytest
+
+    with pytest.raises(BuildError):
+        UnifiedDiffApplier.apply(tmp_path, bad_diff)

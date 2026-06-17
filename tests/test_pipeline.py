@@ -80,7 +80,7 @@ def test_end_to_end_pipeline(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
             BuildAgent(llm=llm, apply=False),
         ]
 
-        orchestrator = Orchestrator(llm=llm, agents=agents)
+        orchestrator = Orchestrator(agents=agents)
 
         context = ContextStore(repo_path=repo_dir)
         context.load_repo(repo_dir)

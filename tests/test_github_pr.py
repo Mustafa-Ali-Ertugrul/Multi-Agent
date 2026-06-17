@@ -19,10 +19,38 @@ class FakeLLM(LLMGateway):
         return '{"title": "Test PR", "body": "Test Body"}'
 
 
-def test_github_pr_missing_token(monkeypatch: MonkeyPatch) -> None:
+def test_github_pr_constructor_allows_missing_token(monkeypatch: MonkeyPatch) -> None:
+    """Constructor artik token yokliginde hata firlatmaz; kontrol run()'a tasindi."""
     monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    agent = GitHubPRAgent(llm=FakeLLM())
+    assert agent.github_token is None
+
+
+def test_github_pr_run_without_token_in_dry_run_works(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    """dry_run=True modunda token olmadan hata firlatilmamali."""
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    agent = GitHubPRAgent(llm=FakeLLM(), dry_run=True)
+    context = ContextStore(repo_path=tmp_path)
+    context.decisions.append("Onerilen degisiklik (unified diff):\n--- a\n+++ b\n")
+
+    result = agent.run(context)
+
+    assert "[DRY RUN] PR acilmayacak." in result.decisions[-1]
+
+
+def test_github_pr_run_without_token_in_real_mode_raises(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
+    """dry_run=False modunda token yoksa run() GitHubPRError firlatir."""
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    agent = GitHubPRAgent(llm=FakeLLM(), dry_run=False)
+    context = ContextStore(repo_path=tmp_path)
+    context.decisions.append("Onerilen degisiklik (unified diff):\n--- a\n+++ b\n")
+
     with pytest.raises(GitHubPRError, match="GITHUB_TOKEN"):
-        GitHubPRAgent(llm=FakeLLM())
+        agent.run(context)
 
 
 def test_github_pr_no_diff(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

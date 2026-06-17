@@ -13,9 +13,15 @@ from multiagent.agents.base import Agent
 from multiagent.agents.build import BuildError, UnifiedDiffApplier
 from multiagent.context.store import ContextStore
 from multiagent.llm.gateway import LLMGateway
+from multiagent.log import get_logger
+
+log = get_logger("github_pr")
 
 if TYPE_CHECKING:
     from multiagent.mcp.client import MCPClient
+
+GIT_TIMEOUT = 60
+HTTPX_TIMEOUT = 60.0
 
 
 class GitHubPRError(RuntimeError):
@@ -33,16 +39,18 @@ class GitHubPRAgent(Agent):
         super().__init__(tools=tools, require_mcp=require_mcp)
         self.llm = llm
         self.dry_run = dry_run
-
-        self.github_token = os.environ.get("GITHUB_TOKEN")
-        if not self.github_token:
-            raise GitHubPRError("GITHUB_TOKEN ortam degiskeni bulunamadi.")
+        self.github_token: str | None = os.environ.get("GITHUB_TOKEN")
 
     @property
     def name(self) -> str:
         return "github_pr"
 
     def run(self, context: ContextStore) -> ContextStore:
+        if not self.dry_run and not self.github_token:
+            raise GitHubPRError(
+                "GITHUB_TOKEN ortam degiskeni bulunamadi; dry_run=False icin zorunlu."
+            )
+
         diff_text = self._extract_diff(context)
         if not diff_text:
             context.decisions.append(
@@ -73,9 +81,19 @@ class GitHubPRAgent(Agent):
         return context
 
     def _extract_diff(self, context: ContextStore) -> str | None:
+        build_proposals = [
+            proposal for proposal in context.proposed_diffs if proposal.agent == "build"
+        ]
+        if build_proposals:
+            return build_proposals[-1].diff
+
         prefix = "Onerilen degisiklik (unified diff):\n"
         for decision in reversed(context.decisions):
             if decision.startswith(prefix):
+                log.warning(
+                    "build proposed_diffs bulunamadi; decisions geriye donuk "
+                    "taramasina dusuldu. Yeni BuildAgent ciktisi bekleniyor."
+                )
                 return decision[len(prefix) :]
         return None
 
@@ -107,8 +125,14 @@ class GitHubPRAgent(Agent):
                     str(data.get("title", "Otomatik Duzeltme")),
                     str(data.get("body", "Bu PR otomatik olarak uretilmistir.")),
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            log.warning(
+                "JSON parse hatasi, varsayilan PR icerigi kullaniliyor: %s", exc
+            )
+            context.decisions.append(
+                f"PR basligi/govdesi icin LLM JSON ayristirilamadi; "
+                f"varsayilan icerik kullanildi ({exc.__class__.__name__})."
+            )
 
         return "Otomatik Duzeltme", f"Bu PR otomatik olarak uretilmistir.\n\n{response}"
 
@@ -118,59 +142,78 @@ class GitHubPRAgent(Agent):
             cwd=context.repo_path,
             capture_output=True,
             text=True,
+            timeout=GIT_TIMEOUT,
         )
         if status.stdout.strip():
             return
 
         try:
             UnifiedDiffApplier.apply(context.repo_path, diff)
-        except BuildError:
-            pass
+        except BuildError as exc:
+            raise GitHubPRError(
+                f"Diff uygulanamadi, PR iptal edildi: {exc}"
+            ) from exc
 
     def _commit_and_push(self, repo_path: Path, branch_name: str, message: str) -> None:
-        subprocess.run(
-            ["git", "checkout", "-b", branch_name],
-            cwd=repo_path,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "add", "-A"],
-            cwd=repo_path,
-            check=True,
-            capture_output=True,
-        )
+        try:
+            subprocess.run(
+                ["git", "checkout", "-b", branch_name],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+                timeout=GIT_TIMEOUT,
+            )
+            subprocess.run(
+                ["git", "add", "-A"],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+                timeout=GIT_TIMEOUT,
+            )
 
-        status = subprocess.run(
-            ["git", "status", "--porcelain"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-        )
-        if not status.stdout.strip():
-            raise GitHubPRError("Commit edilecek bir degisiklik bulunamadi.")
+            status = subprocess.run(
+                ["git", "status", "--porcelain"],
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
+                timeout=GIT_TIMEOUT,
+            )
+            if not status.stdout.strip():
+                raise GitHubPRError("Commit edilecek bir degisiklik bulunamadi.")
 
-        subprocess.run(
-            ["git", "commit", "-m", message],
-            cwd=repo_path,
-            check=True,
-            capture_output=True,
-        )
-        subprocess.run(
-            ["git", "push", "-u", "origin", branch_name],
-            cwd=repo_path,
-            check=True,
-            capture_output=True,
-        )
+            subprocess.run(
+                ["git", "commit", "-m", message],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+                timeout=GIT_TIMEOUT,
+            )
+            subprocess.run(
+                ["git", "push", "-u", "origin", branch_name],
+                cwd=repo_path,
+                check=True,
+                capture_output=True,
+                timeout=GIT_TIMEOUT,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise GitHubPRError(
+                f"Git islemi {GIT_TIMEOUT} saniye sure sinirini asti: {exc}"
+            ) from exc
 
     def _get_repo_full_name(self, repo_path: Path) -> str:
-        result = subprocess.run(
-            ["git", "remote", "get-url", "origin"],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        try:
+            result = subprocess.run(
+                ["git", "remote", "get-url", "origin"],
+                cwd=repo_path,
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=GIT_TIMEOUT,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise GitHubPRError(
+                f"git remote sorgusu {GIT_TIMEOUT} saniye sure sinirini asti."
+            ) from exc
         url = result.stdout.strip()
 
         if "github.com" not in url:
@@ -205,7 +248,7 @@ class GitHubPRAgent(Agent):
             "Accept": "application/vnd.github.v3+json",
         }
 
-        with httpx.Client() as client:
+        with httpx.Client(timeout=HTTPX_TIMEOUT) as client:
             response = client.post(url, json=data, headers=headers)
 
         if response.status_code != 201:
@@ -230,7 +273,7 @@ class GitHubPRAgent(Agent):
             "Accept": "application/vnd.github.v3+json",
         }
 
-        with httpx.Client() as client:
+        with httpx.Client(timeout=HTTPX_TIMEOUT) as client:
             response = client.get(url, headers=headers)
 
         if response.status_code == 200:

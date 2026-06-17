@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import re
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from multiagent.agents.base import Agent
-from multiagent.context.store import ContextStore, Finding
+from multiagent.context.store import ContextStore, DiffProposal, Finding
 from multiagent.llm.gateway import LLMGateway
 
 if TYPE_CHECKING:
@@ -23,6 +24,7 @@ class BuildError(RuntimeError):
 class DiffFile:
     path: str
     hunks: list[list[str]]
+    new: bool = False
 
 
 class BuildAgent(Agent):
@@ -43,10 +45,24 @@ class BuildAgent(Agent):
 
     def run(self, context: ContextStore) -> ContextStore:
         diff = self._generate_diff(context)
+        context.add_diff_proposal(
+            DiffProposal(
+                agent=self.name,
+                path=None,
+                diff=diff,
+                created_at=time.time(),
+            )
+        )
         context.decisions.append(f"Onerilen degisiklik (unified diff):\n{diff}")
 
         if self.apply:
-            UnifiedDiffApplier.apply(context.repo_path, diff)
+            try:
+                UnifiedDiffApplier.apply(context.repo_path, diff)
+            except BuildError as exc:
+                context.decisions.append(
+                    f"Onerilen degisiklik UYGULANAMADI, dosyalar geri alindi: {exc}"
+                )
+                raise
             context.decisions.append("Onerilen degisiklik dosyalara uygulandi.")
 
         return context
@@ -79,6 +95,7 @@ class BuildAgent(Agent):
         return (
             "Asagidaki bulgular ve kararlar icin onerilen duzeltmeleri "
             "unified diff formatinda uret.\n\n"
+            f"Ilgili repo graph ozeti:\n{BuildAgent._graph_summary(context)}\n\n"
             f"Bulgular:\n{findings or '-'}\n\n"
             f"Kararlar:\n{decisions or '-'}"
         )
@@ -90,15 +107,61 @@ class BuildAgent(Agent):
             f"{finding.message} ({finding.source})"
         )
 
+    @staticmethod
+    def _graph_summary(context: ContextStore) -> str:
+        if context.knowledge_graph is None:
+            return "-"
+
+        finding_files = {finding.file for finding in context.findings}
+        if not finding_files:
+            return context.knowledge_graph.summary(limit=10)
+
+        matching_nodes = [
+            node for node in context.knowledge_graph.nodes if node.file in finding_files
+        ][:10]
+        if not matching_nodes:
+            return context.knowledge_graph.summary(limit=10)
+        return "\n".join(
+            f"{node.kind}:{node.name} ({node.file}:{node.line})"
+            for node in matching_nodes
+        )
+
 
 class UnifiedDiffApplier:
     @classmethod
     def apply(cls, repo_path: Path, diff: str) -> None:
-        for diff_file in cls.parse(diff):
-            target = cls._safe_target(repo_path, diff_file.path)
-            original = target.read_text(encoding="utf-8").splitlines(keepends=True)
-            updated = cls._apply_hunks(original, diff_file.hunks, diff_file.path)
-            target.write_text("".join(updated), encoding="utf-8")
+        """Apply a unified diff to the working tree.
+
+        Takes a snapshot of every target file before mutating it; if any
+        hunk fails, all previously-modified files are rolled back so the
+        repository is left untouched. The error is then re-raised.
+        Supports new file creation via ``--- /dev/null`` markers.
+        """
+        snapshot: dict[Path, str] = {}
+        modified: list[Path] = []
+        try:
+            for diff_file in cls.parse(diff):
+                target = cls._safe_target(repo_path, diff_file.path, diff_file.new)
+                if diff_file.new:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    original: list[str] = []
+                else:
+                    if target not in snapshot:
+                        snapshot[target] = target.read_text(encoding="utf-8")
+                    original = snapshot[target].splitlines(keepends=True)
+                updated = cls._apply_hunks(
+                    original, diff_file.hunks, diff_file.path, diff_file.new
+                )
+                target.write_text("".join(updated), encoding="utf-8")
+                modified.append(target)
+        except Exception:
+            # Roll back every file we touched, in reverse order.
+            for target in reversed(modified):
+                try:
+                    target.write_text(snapshot[target], encoding="utf-8")
+                except OSError:
+                    pass
+            raise
 
     @classmethod
     def parse(cls, diff: str) -> list[DiffFile]:
@@ -113,6 +176,13 @@ class UnifiedDiffApplier:
                 index += 1
                 continue
 
+            if index + 1 >= len(lines) or not lines[index + 1].startswith("+++ "):
+                raise BuildError("Unified diff dosya basligi hatali.")
+
+            old_path = lines[index].strip()
+            is_new = old_path == "--- /dev/null" or old_path.startswith(
+                "--- /dev/null\t"
+            )
             if index + 1 >= len(lines) or not lines[index + 1].startswith("+++ "):
                 raise BuildError("Unified diff dosya basligi hatali.")
 
@@ -137,7 +207,7 @@ class UnifiedDiffApplier:
 
             if not hunks:
                 raise BuildError("Unified diff en az bir hunk icermeli.")
-            files.append(DiffFile(path=path, hunks=hunks))
+            files.append(DiffFile(path=path, hunks=hunks, new=is_new))
 
         if not files:
             raise BuildError("Unified diff bulunamadi.")
@@ -148,6 +218,7 @@ class UnifiedDiffApplier:
         original: list[str],
         hunks: list[list[str]],
         path: str,
+        new: bool = False,
     ) -> list[str]:
         updated: list[str] = []
         pointer = 0
@@ -158,10 +229,11 @@ class UnifiedDiffApplier:
                 raise BuildError(f"Hunk basligi gecersiz: {path}")
 
             hunk_start = int(match.group("old_start")) - 1
-            if hunk_start < pointer or hunk_start > len(original):
+            if not new and (hunk_start < pointer or hunk_start > len(original)):
                 raise BuildError(f"Hunk konumu gecersiz: {path}")
 
-            updated.extend(original[pointer:hunk_start])
+            if not new:
+                updated.extend(original[pointer:hunk_start])
             pointer = hunk_start
 
             for line in hunk[1:]:
@@ -175,10 +247,16 @@ class UnifiedDiffApplier:
                 content = line[1:]
 
                 if marker == " ":
+                    if new:
+                        continue
                     UnifiedDiffApplier._expect_line(original, pointer, content, path)
                     updated.append(original[pointer])
                     pointer += 1
                 elif marker == "-":
+                    if new:
+                        raise BuildError(
+                            f"Yeni dosya diff'inde '-' satiri olamaz: {path}"
+                        )
                     UnifiedDiffApplier._expect_line(original, pointer, content, path)
                     pointer += 1
                 elif marker == "+":
@@ -186,11 +264,14 @@ class UnifiedDiffApplier:
                 else:
                     raise BuildError(f"Hunk satiri gecersiz: {path}")
 
-        updated.extend(original[pointer:])
+        if not new:
+            updated.extend(original[pointer:])
         return updated
 
     @staticmethod
-    def _safe_target(repo_path: Path, relative_path: str) -> Path:
+    def _safe_target(
+        repo_path: Path, relative_path: str, is_new: bool = False
+    ) -> Path:
         path = Path(relative_path)
         if path.is_absolute() or ".." in path.parts:
             raise BuildError(f"Guvenli olmayan diff yolu: {relative_path}")
@@ -199,7 +280,7 @@ class UnifiedDiffApplier:
         target = (repo_root / path).resolve()
         if repo_root != target and repo_root not in target.parents:
             raise BuildError(f"Diff yolu repo disina cikiyor: {relative_path}")
-        if not target.exists():
+        if not is_new and not target.exists():
             raise BuildError(f"Diff hedef dosyasi bulunamadi: {relative_path}")
         return target
 
@@ -216,8 +297,6 @@ class UnifiedDiffApplier:
     @staticmethod
     def _extract_new_path(line: str) -> str:
         raw_path = line[4:].strip().split("\t", maxsplit=1)[0]
-        if raw_path == "/dev/null":
-            raise BuildError("Yeni dosya olusturan diff henuz desteklenmiyor.")
         if raw_path.startswith("b/"):
             return raw_path[2:]
         return raw_path
