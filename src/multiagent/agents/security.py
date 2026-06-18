@@ -211,7 +211,11 @@ class SecurityAgent(Agent):
     def _check_xss_fstring(
         context: ContextStore, relative_path: str, node: ast.JoinedStr
     ) -> None:
-        combined = "".join(v.value for v in node.values if isinstance(v, ast.Constant))
+        combined = "".join(
+            v.value
+            for v in node.values
+            if isinstance(v, ast.Constant) and isinstance(v.value, str)
+        )
         if re.search(r"</?[a-zA-Z][a-zA-Z0-9]*", combined):
             context.add_finding(
                 Finding(

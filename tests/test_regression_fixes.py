@@ -14,6 +14,8 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 
 def test_coordinator_agent_error_trace_records_str_exc(tmp_path: Path) -> None:
     """Bug 1: CoordinatorAgent + AgentError + fail_fast=False records str(exc)."""
@@ -26,10 +28,10 @@ def test_coordinator_agent_error_trace_records_str_exc(tmp_path: Path) -> None:
         def name(self) -> str:
             return "memory"
 
-        def run(self, context):  # type: ignore[override]
+        def run(self, context: ContextStore) -> ContextStore:
             raise AgentError("memory", "specific AgentError message XYZ")
 
-    agent_map = {"memory": FailingMemoryAgent()}
+    agent_map: dict[str, Agent] = {"memory": FailingMemoryAgent()}
     coord = CoordinatorAgent(agents=agent_map, fail_fast=False)
     context = ContextStore(repo_path=tmp_path)
     coord.run(context)
@@ -58,7 +60,9 @@ def test_crlf_diff_applies_normally(tmp_path: Path) -> None:
     assert target.read_text(encoding="utf-8") == "x = 1\ny = 3\n"
 
 
-def test_benchmark_timeout_returns_false(tmp_path: Path, monkeypatch) -> None:
+def test_benchmark_timeout_returns_false(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Bug 3: subprocess.TimeoutExpired handled gracefully (no crash)."""
     from multiagent.benchmark import _run_pytest
 
@@ -66,7 +70,7 @@ def test_benchmark_timeout_returns_false(tmp_path: Path, monkeypatch) -> None:
     repo.mkdir()
     (repo / "test_x.py").write_text("def test_ok(): assert True\n", encoding="utf-8")
 
-    def fake_run(*args, **kwargs):
+    def fake_run(*args: object, **kwargs: object) -> subprocess.CompletedProcess[str]:
         assert "timeout" in kwargs
         assert kwargs["timeout"] == 120
         raise subprocess.TimeoutExpired(cmd="pytest", timeout=120)
@@ -101,7 +105,7 @@ def test_max_retries_zero_clamps_to_one_attempt() -> None:
     gateway = LLMGateway(model="test-model")
     call_count = 0
 
-    def always_fail(messages, temperature):
+    def always_fail(messages: list[dict[str, object]], temperature: float) -> str:
         nonlocal call_count
         call_count += 1
         raise LLMError("real error")
@@ -129,7 +133,7 @@ def test_max_retries_negative_clamps_to_one() -> None:
     gateway = LLMGateway(model="test-model")
     call_count = 0
 
-    def always_fail(messages, temperature):
+    def always_fail(messages: list[dict[str, object]], temperature: float) -> str:
         nonlocal call_count
         call_count += 1
         raise LLMError("transient")
