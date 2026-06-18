@@ -97,12 +97,19 @@ class SecurityAgent(Agent):
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
-                self._check_sqli(context, relative_path, node)
+                self._check_sqli(context, relative_path, node, tree)
                 self._check_ssrf(context, relative_path, node)
                 self._check_xss(context, relative_path, node)
+            elif isinstance(node, ast.JoinedStr):
+                self._check_xss_fstring(context, relative_path, node)
 
     @staticmethod
-    def _check_sqli(context: ContextStore, relative_path: str, node: ast.Call) -> None:
+    def _check_sqli(
+        context: ContextStore,
+        relative_path: str,
+        node: ast.Call,
+        tree: ast.Module | None = None,
+    ) -> None:
         call_name = _call_name(node.func)
         if not call_name.endswith(".execute") and call_name != "execute":
             return
@@ -129,6 +136,38 @@ class SecurityAgent(Agent):
                     source="security:sqli",
                 )
             )
+        elif isinstance(query, ast.Name) and tree is not None:
+            func = _enclosing_function(tree, node)
+            scopes = (func, tree) if func is not None else (tree,)
+            for scope in scopes:
+                if scope is None:
+                    continue
+                for assign in ast.walk(scope):
+                    if not isinstance(assign, ast.Assign):
+                        continue
+                    if not any(
+                        isinstance(t, ast.Name) and t.id == query.id
+                        for t in assign.targets
+                    ):
+                        continue
+                    risky = isinstance(assign.value, (ast.JoinedStr, ast.BinOp)) or (
+                        isinstance(assign.value, ast.Call)
+                        and _call_name(assign.value.func).endswith(".format")
+                    )
+                    if risky:
+                        context.add_finding(
+                            Finding(
+                                severity="high",
+                                file=relative_path,
+                                line=node.lineno,
+                                message=(
+                                    "Potential SQL injection via assigned "
+                                    "dynamic execute() query."
+                                ),
+                                source="security:sqli",
+                            )
+                        )
+                        return
 
     @staticmethod
     def _check_ssrf(context: ContextStore, relative_path: str, node: ast.Call) -> None:
@@ -164,6 +203,22 @@ class SecurityAgent(Agent):
                     file=relative_path,
                     line=node.lineno,
                     message="Potential XSS unsafe HTML rendering path.",
+                    source="security:xss",
+                )
+            )
+
+    @staticmethod
+    def _check_xss_fstring(
+        context: ContextStore, relative_path: str, node: ast.JoinedStr
+    ) -> None:
+        combined = "".join(v.value for v in node.values if isinstance(v, ast.Constant))
+        if re.search(r"</?[a-zA-Z][a-zA-Z0-9]*", combined):
+            context.add_finding(
+                Finding(
+                    severity="medium",
+                    file=relative_path,
+                    line=node.lineno,
+                    message="Potential XSS via f-string HTML rendering.",
                     source="security:xss",
                 )
             )
@@ -259,3 +314,14 @@ def _call_name(node: ast.AST) -> str:
         base = _call_name(node.value)
         return f"{base}.{node.attr}" if base else node.attr
     return ""
+
+
+def _enclosing_function(
+    tree: ast.AST, target: ast.AST
+) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for child in ast.walk(node):
+                if child is target:
+                    return node
+    return None

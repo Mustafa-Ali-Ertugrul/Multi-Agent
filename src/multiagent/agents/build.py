@@ -25,6 +25,7 @@ class DiffFile:
     path: str
     hunks: list[list[str]]
     new: bool = False
+    is_deletion: bool = False
 
 
 class BuildAgent(Agent):
@@ -141,6 +142,13 @@ class UnifiedDiffApplier:
         modified: list[Path] = []
         try:
             for diff_file in cls.parse(diff):
+                if diff_file.is_deletion:
+                    target = cls._safe_target(repo_path, diff_file.path, is_new=False)
+                    if target not in snapshot:
+                        snapshot[target] = target.read_text(encoding="utf-8")
+                    target.unlink()
+                    modified.append(target)
+                    continue
                 target = cls._safe_target(repo_path, diff_file.path, diff_file.new)
                 if diff_file.new:
                     target.parent.mkdir(parents=True, exist_ok=True)
@@ -186,7 +194,9 @@ class UnifiedDiffApplier:
             if index + 1 >= len(lines) or not lines[index + 1].startswith("+++ "):
                 raise BuildError("Unified diff dosya basligi hatali.")
 
-            path = cls._extract_new_path(lines[index + 1])
+            new_path = cls._extract_new_path(lines[index + 1])
+            is_deletion = new_path == "/dev/null"
+            path = cls._extract_old_path(lines[index]) if is_deletion else new_path
             index += 2
             hunks: list[list[str]] = []
 
@@ -207,7 +217,14 @@ class UnifiedDiffApplier:
 
             if not hunks:
                 raise BuildError("Unified diff en az bir hunk icermeli.")
-            files.append(DiffFile(path=path, hunks=hunks, new=is_new))
+            files.append(
+                DiffFile(
+                    path=path,
+                    hunks=hunks,
+                    new=is_new,
+                    is_deletion=is_deletion,
+                )
+            )
 
         if not files:
             raise BuildError("Unified diff bulunamadi.")
@@ -296,6 +313,13 @@ class UnifiedDiffApplier:
     def _extract_new_path(line: str) -> str:
         raw_path = line[4:].strip().split("\t", maxsplit=1)[0]
         if raw_path.startswith("b/"):
+            return raw_path[2:]
+        return raw_path
+
+    @staticmethod
+    def _extract_old_path(line: str) -> str:
+        raw_path = line[4:].strip().split("\t", maxsplit=1)[0]
+        if raw_path.startswith("a/"):
             return raw_path[2:]
         return raw_path
 

@@ -104,3 +104,51 @@ def test_unified_diff_applier_rejects_path_traversal_in_new_file(
 
     with pytest.raises(BuildError):
         UnifiedDiffApplier.apply(tmp_path, bad_diff)
+
+
+def test_unified_diff_applier_deletes_existing_file(tmp_path: Path) -> None:
+    """+++ /dev/null diff'i mevcut dosyayi siler."""
+    from multiagent.agents.build import UnifiedDiffApplier
+
+    target = tmp_path / "old_module.py"
+    target.write_text("def old():\n    return 1\n", encoding="utf-8")
+
+    delete_diff = (
+        "--- a/old_module.py\n"
+        "+++ /dev/null\n"
+        "@@ -1,2 +0,0 @@\n"
+        "-def old():\n"
+        "-    return 1\n"
+    )
+
+    UnifiedDiffApplier.apply(tmp_path, delete_diff)
+    assert not target.exists()
+
+
+def test_unified_diff_applier_rolls_back_deletion_on_failure(
+    tmp_path: Path,
+) -> None:
+    """Silme basarili ama sonraki dosyada hata varsa, silinen dosya geri gelmeli."""
+    from multiagent.agents.build import BuildError, UnifiedDiffApplier
+
+    deleted = tmp_path / "doomed.py"
+    deleted.write_text("to be deleted\n", encoding="utf-8")
+
+    bad_diff = (
+        "--- a/doomed.py\n"
+        "+++ /dev/null\n"
+        "@@ -1,1 +0,0 @@\n"
+        "-to be deleted\n"
+        "--- a/../escape.py\n"
+        "+++ b/../escape.py\n"
+        "@@ -0,0 +1,1 @@\n"
+        "+x = 1\n"
+    )
+
+    import pytest
+
+    with pytest.raises(BuildError):
+        UnifiedDiffApplier.apply(tmp_path, bad_diff)
+
+    assert deleted.exists()
+    assert deleted.read_text(encoding="utf-8") == "to be deleted\n"

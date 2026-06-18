@@ -91,3 +91,96 @@ def test_security_agent_parses_pip_audit_vulnerabilities(
 
     assert context.findings[0].source == "security:cve"
     assert "CVE-1" in context.findings[0].message
+
+
+def test_security_agent_detects_xss_via_fstring_html(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    context = ContextStore(repo_path=tmp_path)
+    context.files = {
+        "template.py": "\n".join(
+            [
+                "def render(name):",
+                '    return f"<div>{name}</div>"',
+            ]
+        )
+    }
+    monkeypatch.setattr(SecurityAgent, "_run_bandit", lambda self, context: None)
+    monkeypatch.setattr(
+        SecurityAgent, "_run_dependency_audit", lambda self, context: None
+    )
+
+    SecurityAgent().run(context)
+
+    sources = {finding.source for finding in context.findings}
+    assert "security:xss" in sources
+
+
+def test_security_agent_does_not_flag_non_html_fstring(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    context = ContextStore(repo_path=tmp_path)
+    context.files = {
+        "logic.py": ("def cmp(a, b):\n    return f'{a} < {b} and {a} > {b}'\n"),
+    }
+    monkeypatch.setattr(SecurityAgent, "_run_bandit", lambda self, context: None)
+    monkeypatch.setattr(
+        SecurityAgent, "_run_dependency_audit", lambda self, context: None
+    )
+
+    SecurityAgent().run(context)
+
+    xss_findings = [f for f in context.findings if f.source == "security:xss"]
+    assert xss_findings == []
+
+
+def test_security_agent_detects_sqli_via_assigned_fstring(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    context = ContextStore(repo_path=tmp_path)
+    context.files = {
+        "db.py": "\n".join(
+            [
+                "def handler(cursor, name):",
+                '    query = f"SELECT * FROM users WHERE name = {name}"',
+                "    cursor.execute(query)",
+            ]
+        )
+    }
+    monkeypatch.setattr(SecurityAgent, "_run_bandit", lambda self, context: None)
+    monkeypatch.setattr(
+        SecurityAgent, "_run_dependency_audit", lambda self, context: None
+    )
+
+    SecurityAgent().run(context)
+
+    sources = {finding.source for finding in context.findings}
+    assert "security:sqli" in sources
+
+
+def test_security_agent_does_not_flag_safe_variable_execute(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    context = ContextStore(repo_path=tmp_path)
+    context.files = {
+        "db.py": "\n".join(
+            [
+                "def handler(cursor, user_id):",
+                '    query = "SELECT * FROM users WHERE id = ?"',
+                "    cursor.execute(query, (user_id,))",
+            ]
+        )
+    }
+    monkeypatch.setattr(SecurityAgent, "_run_bandit", lambda self, context: None)
+    monkeypatch.setattr(
+        SecurityAgent, "_run_dependency_audit", lambda self, context: None
+    )
+
+    SecurityAgent().run(context)
+
+    sqli_findings = [f for f in context.findings if f.source == "security:sqli"]
+    assert sqli_findings == []
