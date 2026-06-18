@@ -2,21 +2,22 @@
 
 <p align="center">
   <img src="https://img.shields.io/github/actions/workflow/status/Mustafa-Ali-Ertugrul/Multi-Agent/ci.yml?branch=main&style=flat-square" alt="CI Status">
-  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue?style=flat-square" alt="Python Version">
+  <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue?style=flat-square" alt="Python Version">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/status-active%20%2F%20beta-orange?style=flat-square" alt="Project Status">
 </p>
 
 <p align="center">
   <img src="assets/multiagent-cli-real-run.png" alt="Multi-Agent CLI Terminal Demo" style="max-width: 100%;">
 </p>
 
-This project is a fully completed, intelligent multi-agent code analysis and automated Pull Request creation tool developed with Python 3.11+. It seamlessly orchestrates specialized agents (Reviewer, Architect, TestRunner, Build, GitHubPR) to scan your codebase, propose architecture improvements, validate tests, and open GitHub Pull Requests completely autonomously using the Model Context Protocol (MCP) and LLM integrations.
+Project Status: **Active / Beta**. 
+
+This project is an intelligent multi-agent code analysis and automated Pull Request creation tool developed with Python 3.11+. It seamlessly orchestrates specialized agents (Reviewer, Architect, TestRunner, Build, GitHubPR) to scan your codebase, propose architecture improvements, validate tests, and open GitHub Pull Requests autonomously using the Model Context Protocol (MCP) and LLM integrations.
 
 <h2 align="center">Showcase</h2>
 
-> **Note:** The system offers a highly interactive and colorful experience while running. You can easily record an [Asciinema](https://asciinema.org/docs/getting-started) session or create an animated GIF to feature your own demo here.
->
-> **Turkish Summary:** Bu proje tamamlanmis bir multi-agent kod analiz ve otomatik PR aracidir. Terminal uzerinde renkli ve etkilesimli bir deneyim sunar. Gelistirmesi bitmis olup kullanima hazirdir.
+> **Turkish Summary:** Bu proje bir multi-agent kod analiz ve otomatik PR aracidir. Terminal uzerinde renkli ve etkilesimli bir deneyim sunar.
 
 ### Completed Features
 
@@ -68,7 +69,7 @@ flowchart TD
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[mcp,dev]"
 ```
 
 Windows PowerShell:
@@ -76,7 +77,7 @@ Windows PowerShell:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
+pip install -e ".[mcp,dev]"
 ```
 
 Make sure Ollama is running locally and the target model is pulled:
@@ -179,13 +180,4 @@ pytest
 
 ## Contribution
 
-Please run the quality checks before submitting a contribution:
-
-```bash
-ruff check .
-ruff format --check .
-mypy src tests
-pytest
-```
-
-When adding a new agent or gateway behavior, please include the relevant unit tests. `mypy` is a blocking step in the CI, so ensure type hints are comprehensive in public APIs and test helpers.
+Please refer to [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on how to contribute to this project.

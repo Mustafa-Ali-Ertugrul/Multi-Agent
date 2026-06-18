@@ -6,6 +6,7 @@ import subprocess
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
+from uuid import uuid4
 
 import httpx
 
@@ -59,7 +60,7 @@ class GitHubPRAgent(Agent):
             return context
 
         title, body = self._generate_pr_content(context)
-        branch_name = f"auto-fix-{int(time.time())}"
+        branch_name = f"auto-fix-{int(time.time())}-{uuid4().hex[:8]}"
 
         if self.dry_run:
             context.decisions.append(

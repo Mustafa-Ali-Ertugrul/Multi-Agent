@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multiagent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Multi-agent code analysis toolkit."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,12 +21,14 @@ dependencies = [
 multiagent = "multiagent.cli:main"
 
 [project.optional-dependencies]
+mcp = ["mcp>=1.0"]
 dev = [
   "bandit>=1.7",
   "mypy>=1.10",
   "pytest>=8.2",
   "pytest-cov>=5.0",
   "ruff>=0.5",
+  "mcp>=1.0",
 ]
 
 [tool.ruff]
@@ -49,3 +51,4 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+addopts = "--cov=src/multiagent --cov-report=term-missing --cov-fail-under=80"

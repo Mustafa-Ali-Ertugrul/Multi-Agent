@@ -93,10 +93,13 @@ def load_config(path: Path | None = None) -> Config:
             c.require_mcp = bool(cfg["require_mcp"])
         if "coordinator" in cfg:
             c.coordinator = bool(cfg["coordinator"])
-        if "memory" in cfg and isinstance(cfg["memory"], bool):
-            c.memory = cfg["memory"]
-        elif "memory" in cfg and isinstance(cfg["memory"], dict):
-            c.memory = True
+        if "memory" in cfg:
+            if isinstance(cfg["memory"], bool):
+                c.memory = cfg["memory"]
+            elif isinstance(cfg["memory"], dict):
+                c.memory = True
+                if "path" in cfg["memory"]:
+                    c.memory_config.path = str(cfg["memory"]["path"])
         if "security" in cfg:
             c.security = bool(cfg["security"])
         if "knowledge_graph" in cfg:
@@ -114,10 +117,6 @@ def load_config(path: Path | None = None) -> Config:
                 c.llm_failure_mode = mode
         if "memory_path" in cfg:
             c.memory_config.path = str(cfg["memory_path"])
-        if "memory" in cfg and isinstance(cfg["memory"], dict):
-            memory_cfg = cfg["memory"]
-            if "path" in memory_cfg:
-                c.memory_config.path = str(memory_cfg["path"])
         if "benchmark" in data["multiagent"] and isinstance(
             data["multiagent"]["benchmark"], dict
         ):
