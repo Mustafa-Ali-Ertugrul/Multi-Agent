@@ -10,7 +10,7 @@ from rich.syntax import Syntax
 from rich.table import Table
 
 from multiagent.agents.architect import ArchitectAgent
-from multiagent.agents.base import Agent
+from multiagent.agents.base import Agent, AgentError
 from multiagent.agents.build import BuildAgent
 from multiagent.agents.coordinator import CoordinatorAgent
 from multiagent.agents.github_pr import GitHubPRAgent
@@ -211,173 +211,197 @@ def _analyze(args: argparse.Namespace) -> None:
     if not repo_path.exists() or not repo_path.is_dir():
         _fail(f"Repo dizini bulunamadi: {repo_path}")
 
-    config = load_config(
-        repo_path / "multiagent.toml"
-        if (repo_path / "multiagent.toml").exists()
-        else repo_path / ".multiagent.toml"
-    )
+    try:
+        config = load_config(
+            repo_path / "multiagent.toml"
+            if (repo_path / "multiagent.toml").exists()
+            else repo_path / ".multiagent.toml"
+        )
 
-    context = ContextStore(
-        repo_path=repo_path,
-        task=str(args.task or ""),
-        exclude_dirs=set(config.exclude_dirs),
-    )
-    context.load_repo(repo_path)
+        context = ContextStore(
+            repo_path=repo_path,
+            task=str(args.task or ""),
+            exclude_dirs=set(config.exclude_dirs),
+        )
+        context.load_repo(repo_path)
 
-    model = args.model or config.model
-    llm = (
-        LLMGateway.from_env(model=model)
-        if isinstance(model, str)
-        else LLMGateway.from_env()
-    )
+        model = args.model or config.model
+        llm = (
+            LLMGateway.from_env(model=model)
+            if isinstance(model, str)
+            else LLMGateway.from_env()
+        )
 
-    use_coordinator = bool(args.coordinator) or config.coordinator
-    use_memory = bool(args.memory) or config.memory
-    use_security = bool(args.security) or config.security or use_coordinator
-    use_graph = bool(args.knowledge_graph) or config.knowledge_graph or use_coordinator
-    max_iterations = args.max_agent_iterations or config.max_agent_iterations
-    fail_fast = not bool(args.continue_on_error) and config.llm_failure_mode == "fatal"
+        use_coordinator = bool(args.coordinator) or config.coordinator
+        use_memory = bool(args.memory) or config.memory
+        use_security = bool(args.security) or config.security or use_coordinator
+        use_graph = (
+            bool(args.knowledge_graph) or config.knowledge_graph or use_coordinator
+        )
+        max_iterations = args.max_agent_iterations or config.max_agent_iterations
+        fail_fast = (
+            not bool(args.continue_on_error) and config.llm_failure_mode == "fatal"
+        )
 
-    valid_agent_names = [
-        "memory",
-        "knowledge-graph",
-        "security",
-        "reviewer",
-        "architect",
-        "test-runner",
-        "build",
-    ]
-    if args.open_pr or args.execute_pr:
-        valid_agent_names.append("github_pr")
-
-    if isinstance(args.agents, str) and args.agents.strip():
-        requested_names = [
-            name.strip().lower() for name in args.agents.split(",") if name.strip()
+        valid_agent_names = [
+            "memory",
+            "knowledge-graph",
+            "security",
+            "reviewer",
+            "architect",
+            "test-runner",
+            "build",
         ]
-        for name in requested_names:
-            if name not in valid_agent_names and name != "github_pr":
-                _fail(
-                    f"Gecersiz agent: {name}. Gecerli agent'lar: "
-                    "memory, knowledge-graph, security, reviewer, architect, "
-                    "test-runner, build, github_pr"
-                )
-        if "github_pr" in requested_names and "github_pr" not in valid_agent_names:
+        if args.open_pr or args.execute_pr:
             valid_agent_names.append("github_pr")
 
-        active_names = [name for name in valid_agent_names if name in requested_names]
-        if use_memory and "memory" not in active_names:
-            active_names.insert(0, "memory")
-        if use_graph and "knowledge-graph" not in active_names:
-            active_names.insert(0, "knowledge-graph")
-        if use_security and "security" not in active_names:
-            active_names.insert(1 if use_graph else 0, "security")
-    else:
-        # Check config agents
-        active_names = [name for name in valid_agent_names if name in config.agents]
-        if use_memory and "memory" not in active_names:
-            active_names.insert(0, "memory")
-        if use_graph and "knowledge-graph" not in active_names:
-            active_names.insert(0, "knowledge-graph")
-        if use_security and "security" not in active_names:
-            active_names.insert(1 if use_graph else 0, "security")
-        if args.open_pr or args.execute_pr:
-            if "github_pr" not in active_names:
-                active_names.append("github_pr")
+        if isinstance(args.agents, str) and args.agents.strip():
+            requested_names = [
+                name.strip().lower() for name in args.agents.split(",") if name.strip()
+            ]
+            for name in requested_names:
+                if name not in valid_agent_names and name != "github_pr":
+                    _fail(
+                        f"Gecersiz agent: {name}. Gecerli agent'lar: "
+                        "memory, knowledge-graph, security, reviewer, architect, "
+                        "test-runner, build, github_pr"
+                    )
+            if "github_pr" in requested_names and "github_pr" not in valid_agent_names:
+                valid_agent_names.append("github_pr")
 
-    require_mcp = bool(args.require_mcp) or config.require_mcp
-    mcp_client = None
-
-    cmd = args.mcp_command or config.mcp_command
-    url = args.mcp_url or config.mcp_url
-
-    if cmd or url:
-        if args.mcp_args:
-            mcp_args = args.mcp_args.split()
-        elif config.mcp_args:
-            mcp_args = config.mcp_args
+            active_names = [
+                name for name in valid_agent_names if name in requested_names
+            ]
+            if use_memory and "memory" not in active_names:
+                active_names.insert(0, "memory")
+            if use_graph and "knowledge-graph" not in active_names:
+                active_names.insert(0, "knowledge-graph")
+            if use_security and "security" not in active_names:
+                active_names.insert(1 if use_graph else 0, "security")
         else:
-            mcp_args = []
+            # Check config agents
+            active_names = [name for name in valid_agent_names if name in config.agents]
+            if use_memory and "memory" not in active_names:
+                active_names.insert(0, "memory")
+            if use_graph and "knowledge-graph" not in active_names:
+                active_names.insert(0, "knowledge-graph")
+            if use_security and "security" not in active_names:
+                active_names.insert(1 if use_graph else 0, "security")
+            if args.open_pr or args.execute_pr:
+                if "github_pr" not in active_names:
+                    active_names.append("github_pr")
 
-        server_config = MCPServerConfig(
-            command=cmd,
-            args=mcp_args,
-            url=url,
-        )
-        mcp_client = MCPClient(server_config)
+        require_mcp = bool(args.require_mcp) or config.require_mcp
+        mcp_client = None
 
-    memory_path = args.memory_path or Path(config.memory_config.path)
-    if not memory_path.is_absolute():
-        memory_path = repo_path / memory_path
+        cmd = args.mcp_command or config.mcp_command
+        url = args.mcp_url or config.mcp_url
 
-    agents_map: dict[str, Agent] = {
-        "knowledge-graph": KnowledgeGraphAgent(),
-        "security": SecurityAgent(),
-        "reviewer": ReviewerAgent(llm=llm, tools=mcp_client, require_mcp=require_mcp),
-        "architect": ArchitectAgent(llm=llm, tools=mcp_client, require_mcp=require_mcp),
-        "test-runner": TestRunnerAgent(
-            llm=llm, tools=mcp_client, require_mcp=require_mcp
-        ),
-        "build": BuildAgent(
-            llm=llm, apply=bool(args.apply), tools=mcp_client, require_mcp=require_mcp
-        ),
-    }
-    memory_agent = (
-        MemoryAgent(memory_path) if use_memory or "memory" in active_names else None
-    )
-    if memory_agent is not None:
-        agents_map["memory"] = memory_agent
+        if cmd or url:
+            if args.mcp_args:
+                mcp_args = args.mcp_args.split()
+            elif config.mcp_args:
+                mcp_args = config.mcp_args
+            else:
+                mcp_args = []
 
-    if "github_pr" in active_names:
-        agents_map["github_pr"] = GitHubPRAgent(
-            llm=llm,
-            dry_run=not bool(args.execute_pr),
-            tools=mcp_client,
-            require_mcp=require_mcp,
-        )
-
-    if use_coordinator:
-        coordinator_agents = {
-            name: agent for name, agent in agents_map.items() if name in active_names
-        }
-        coordinator = CoordinatorAgent(
-            agents=coordinator_agents,
-            knowledge_graph_enabled=use_graph,
-            security_enabled=use_security,
-            open_pr=bool(args.open_pr or args.execute_pr),
-            apply_changes=bool(args.apply),
-            rerun_tests_after_apply=max_iterations > 1,
-            fail_fast=fail_fast,
-        )
-        old_findings_len = len(context.findings)
-        old_decisions_len = len(context.decisions)
-        context = coordinator.run(context)
-        agent_results = [
-            (
-                "coordinator",
-                context.findings[old_findings_len:],
-                context.decisions[old_decisions_len:],
+            server_config = MCPServerConfig(
+                command=cmd,
+                args=mcp_args,
+                url=url,
             )
-        ]
-    else:
-        context, agent_results = _run_linear_agents(
-            context, active_names, agents_map, fail_fast=fail_fast
+            mcp_client = MCPClient(server_config)
+
+        memory_path = args.memory_path or Path(config.memory_config.path)
+        if not memory_path.is_absolute():
+            memory_path = repo_path / memory_path
+
+        agents_map: dict[str, Agent] = {
+            "knowledge-graph": KnowledgeGraphAgent(),
+            "security": SecurityAgent(),
+            "reviewer": ReviewerAgent(
+                llm=llm, tools=mcp_client, require_mcp=require_mcp
+            ),
+            "architect": ArchitectAgent(
+                llm=llm, tools=mcp_client, require_mcp=require_mcp
+            ),
+            "test-runner": TestRunnerAgent(
+                llm=llm, tools=mcp_client, require_mcp=require_mcp
+            ),
+            "build": BuildAgent(
+                llm=llm,
+                apply=bool(args.apply),
+                tools=mcp_client,
+                require_mcp=require_mcp,
+            ),
+        }
+        memory_agent = (
+            MemoryAgent(memory_path) if use_memory or "memory" in active_names else None
+        )
+        if memory_agent is not None:
+            agents_map["memory"] = memory_agent
+
+        if "github_pr" in active_names:
+            agents_map["github_pr"] = GitHubPRAgent(
+                llm=llm,
+                dry_run=not bool(args.execute_pr),
+                tools=mcp_client,
+                require_mcp=require_mcp,
+            )
+
+        if use_coordinator:
+            coordinator_agents = {
+                name: agent
+                for name, agent in agents_map.items()
+                if name in active_names
+            }
+            coordinator = CoordinatorAgent(
+                agents=coordinator_agents,
+                knowledge_graph_enabled=use_graph,
+                security_enabled=use_security,
+                open_pr=bool(args.open_pr or args.execute_pr),
+                apply_changes=bool(args.apply),
+                rerun_tests_after_apply=max_iterations > 1,
+                fail_fast=fail_fast,
+            )
+            old_findings_len = len(context.findings)
+            old_decisions_len = len(context.decisions)
+            context = coordinator.run(context)
+            agent_results = [
+                (
+                    "coordinator",
+                    context.findings[old_findings_len:],
+                    context.decisions[old_decisions_len:],
+                )
+            ]
+        else:
+            context, agent_results = _run_linear_agents(
+                context, active_names, agents_map, fail_fast=fail_fast
+            )
+
+        if memory_agent is not None:
+            memory_agent.persist(context)
+
+        json_out = args.json_out
+        if isinstance(json_out, Path):
+            context.save(json_out)
+
+        _render_result(
+            context,
+            agent_results,
+            json_out=json_out if isinstance(json_out, Path) else None,
         )
 
-    if memory_agent is not None:
-        memory_agent.persist(context)
+        if getattr(args, "trace", False):
+            _render_trace(context, llm=llm)
 
-    json_out = args.json_out
-    if isinstance(json_out, Path):
-        context.save(json_out)
-
-    _render_result(
-        context,
-        agent_results,
-        json_out=json_out if isinstance(json_out, Path) else None,
-    )
-
-    if getattr(args, "trace", False):
-        _render_trace(context, llm=llm)
+    except AgentError as exc:
+        _fail(
+            f"Agent hatasi: {exc}\n"
+            f"LLM sunucusuna ulasilamadi. Ollama calisiyor mu?\n"
+            f"  ollama serve  # veya  ollama run qwen2.5-coder\n"
+            f"Alternatif: --continue-on-error flag'i ile hata veren agent'lar atlanir."
+        )
 
 
 def _render_trace(context: ContextStore, llm: LLMGateway | None = None) -> None:

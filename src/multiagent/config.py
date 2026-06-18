@@ -44,7 +44,7 @@ class Config:
         default_factory=lambda: [".venv", "node_modules", ".git"]
     )
     # "fatal" (default) raises on LLM/MCP errors; "fallback" logs and continues.
-    llm_failure_mode: str = "fatal"
+    llm_failure_mode: str = "fallback"
 
 
 def load_config(path: Path | None = None) -> Config:

@@ -158,7 +158,7 @@ def test_config_default_failure_mode(tmp_path: Path) -> None:
     from multiagent.config import load_config
 
     config = load_config(tmp_path / "nonexistent.toml")
-    assert config.llm_failure_mode == "fatal"
+    assert config.llm_failure_mode == "fallback"
 
 
 def test_config_reads_failure_mode(tmp_path: Path) -> None:
@@ -177,4 +177,4 @@ def test_config_rejects_invalid_failure_mode(tmp_path: Path) -> None:
     toml.write_text('[multiagent]\nllm_failure_mode = "unknown"\n')
     config = load_config(toml)
     # Should fall back to default
-    assert config.llm_failure_mode == "fatal"
+    assert config.llm_failure_mode == "fallback"
