@@ -5,6 +5,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Self
+from uuid import uuid4
 
 
 @dataclass(frozen=True)
@@ -89,7 +90,9 @@ class DiffProposal:
 class ContextStore:
     repo_path: Path
     task: str = ""
-    run_id: str = field(default_factory=lambda: str(int(time.time() * 1000)))
+    run_id: str = field(
+        default_factory=lambda: f"{int(time.time() * 1000)}-{uuid4().hex[:8]}"
+    )
     files: dict[str, str] = field(default_factory=dict)
     findings: list[Finding] = field(default_factory=list)
     decisions: list[str] = field(default_factory=list)

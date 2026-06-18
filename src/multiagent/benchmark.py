@@ -138,16 +138,23 @@ def _extract_diff(context: ContextStore) -> str | None:
     return None
 
 
+BENCHMARK_TIMEOUT = 120
+
+
 def _run_pytest(repo_path: Path) -> bool:
     if not any(path.name.startswith("test_") for path in repo_path.rglob("*.py")):
         return False
-    result = subprocess.run(
-        ["pytest"],
-        cwd=repo_path,
-        capture_output=True,
-        check=False,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["pytest"],
+            cwd=repo_path,
+            capture_output=True,
+            check=False,
+            text=True,
+            timeout=BENCHMARK_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     return bool(result.returncode == 0)
 
 

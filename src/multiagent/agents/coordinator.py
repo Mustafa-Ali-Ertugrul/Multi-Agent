@@ -123,12 +123,12 @@ class CoordinatorAgent(Agent):
         start = time.monotonic()
         try:
             return self.agents[name].run(context)
-        except AgentError:
+        except AgentError as exc:
             elapsed = time.monotonic() - start
-            log.warning("agent %s raised AgentError after %.2fs", name, elapsed)
+            log.warning("agent %s raised AgentError after %.2fs: %s", name, elapsed, exc)
             if self.fail_fast:
                 raise
-            context.add_trace(name, "error", str(self.agents[name]))
+            context.add_trace(name, "error", str(exc))
             return context
         except Exception as exc:
             elapsed = time.monotonic() - start

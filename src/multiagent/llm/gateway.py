@@ -83,6 +83,7 @@ class LLMGateway:
         temperature: float = 0.2,
         max_retries: int = 3,
     ) -> str:
+        max_retries = max(1, max_retries)
         prompt_chars = sum(len(str(m.get("content", ""))) for m in messages)
         start = time.monotonic()
         last_exc: LLMError | None = None

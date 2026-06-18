@@ -165,7 +165,7 @@ class UnifiedDiffApplier:
 
     @classmethod
     def parse(cls, diff: str) -> list[DiffFile]:
-        normalized = cls._strip_code_fence(diff)
+        normalized = cls._strip_code_fence(diff).replace("\r\n", "\n")
         lines = normalized.splitlines(keepends=True)
         files: list[DiffFile] = []
         index = 0
