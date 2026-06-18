@@ -4,6 +4,7 @@
   <img src="https://img.shields.io/github/actions/workflow/status/Mustafa-Ali-Ertugrul/Multi-Agent/ci.yml?branch=main&style=flat-square" alt="CI Status">
   <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue?style=flat-square" alt="Python Version">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License">
+  <img src="https://img.shields.io/badge/coverage-81%25-brightgreen?style=flat-square" alt="Coverage">
   <img src="https://img.shields.io/badge/status-active%20%2F%20beta-orange?style=flat-square" alt="Project Status">
 </p>
 

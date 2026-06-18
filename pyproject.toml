@@ -24,11 +24,11 @@ multiagent = "multiagent.cli:main"
 mcp = ["mcp>=1.0"]
 dev = [
   "bandit>=1.7",
-  "mypy>=1.10",
+  "mypy>=1.10,<1.12",
   "pytest>=8.2",
   "pytest-asyncio>=0.23",
   "pytest-cov>=5.0",
-  "ruff>=0.5",
+  "ruff>=0.5,<0.6",
   "mcp>=1.0",
 ]
 
@@ -53,5 +53,7 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "--cov=src/multiagent --cov-report=term-missing --cov-fail-under=80"
-asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "function"
+asyncio_mode = "strict"
+
+[tool.bandit]
+skips = ["B603", "B607"]

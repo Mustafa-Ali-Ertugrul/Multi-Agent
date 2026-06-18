@@ -81,31 +81,52 @@ class LLMGateway:
         self,
         messages: list[dict[str, object]],
         temperature: float = 0.2,
+        max_retries: int = 3,
     ) -> str:
         prompt_chars = sum(len(str(m.get("content", ""))) for m in messages)
         start = time.monotonic()
-        error: str | None = None
-        response = ""
-        try:
-            if self.api_key:
-                response = self._chat_openai(messages, temperature)
-            else:
-                response = self._chat_ollama(messages, temperature)
-            return response
-        except LLMError as exc:
-            error = str(exc)
-            raise
-        finally:
-            elapsed = time.monotonic() - start
-            self.metrics.calls.append(
-                CallMetric(
-                    model=self.model,
-                    prompt_chars=prompt_chars,
-                    response_chars=len(response),
-                    duration_seconds=elapsed,
-                    error=error,
+        last_exc: LLMError | None = None
+
+        for attempt in range(max_retries):
+            error: str | None = None
+            response = ""
+            try:
+                if self.api_key:
+                    response = self._chat_openai(messages, temperature)
+                else:
+                    response = self._chat_ollama(messages, temperature)
+                return response
+            except LLMError as exc:
+                last_exc = exc
+                error = str(exc)
+                if attempt < max_retries - 1:
+                    wait = 2 ** attempt  # 1s, 2s, 4s
+                    log.warning(
+                        "LLM cagrisi basarisiz (deneme %d/%d), %ds sonra tekrar: %s",
+                        attempt + 1,
+                        max_retries,
+                        wait,
+                        exc,
+                    )
+                    time.sleep(wait)
+                    continue
+                raise
+            finally:
+                elapsed = time.monotonic() - start
+                self.metrics.calls.append(
+                    CallMetric(
+                        model=self.model,
+                        prompt_chars=prompt_chars,
+                        response_chars=len(response),
+                        duration_seconds=elapsed,
+                        error=error,
+                    )
                 )
-            )
+
+        # Should not reach here, but satisfy type checker
+        if last_exc is not None:
+            raise last_exc
+        raise LLMError("LLM cagrisi bilinmeyen bir sebeple basarisiz oldu.")
 
     def _chat_openai(
         self,

@@ -50,7 +50,7 @@ def test_metrics_recorded_on_failure() -> None:
 
     raised = False
     try:
-        gw.chat([{"role": "user", "content": "x"}])
+        gw.chat([{"role": "user", "content": "x"}], max_retries=1)
     except LLMError:
         raised = True
 
