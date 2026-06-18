@@ -19,6 +19,7 @@ class FakeLLM(LLMGateway):
         self,
         messages: list[dict[str, object]],
         temperature: float = 0.2,
+        max_retries: int = 3,
     ) -> str:
         return "Kısa güvenlik özeti."
 
@@ -95,6 +96,7 @@ def test_reviewer_falls_back_when_llm_is_unavailable() -> None:
             self,
             messages: list[dict[str, object]],
             temperature: float = 0.2,
+            max_retries: int = 3,
         ) -> str:
             raise LLMError("offline")
 

@@ -100,7 +100,7 @@ class LLMGateway:
                 last_exc = exc
                 error = str(exc)
                 if attempt < max_retries - 1:
-                    wait = 2 ** attempt  # 1s, 2s, 4s
+                    wait = 2**attempt  # 1s, 2s, 4s
                     log.warning(
                         "LLM cagrisi basarisiz (deneme %d/%d), %ds sonra tekrar: %s",
                         attempt + 1,

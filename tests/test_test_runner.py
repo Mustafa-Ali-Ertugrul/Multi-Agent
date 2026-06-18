@@ -19,6 +19,7 @@ class FakeLLM(LLMGateway):
         self,
         messages: list[dict[str, object]],
         temperature: float = 0.2,
+        max_retries: int = 3,
     ) -> str:
         self.messages = messages
         return "```python\ndef test_example() -> None:\n    assert True\n```"

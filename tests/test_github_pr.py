@@ -15,7 +15,12 @@ class FakeLLM(LLMGateway):
     def __init__(self) -> None:
         pass
 
-    def chat(self, messages: list[dict[str, object]], temperature: float = 0.2) -> str:
+    def chat(
+        self,
+        messages: list[dict[str, object]],
+        temperature: float = 0.2,
+        max_retries: int = 3,
+    ) -> str:
         return '{"title": "Test PR", "body": "Test Body"}'
 
 

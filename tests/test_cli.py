@@ -23,6 +23,7 @@ class FakeLLM(LLMGateway):
         self,
         messages: list[dict[str, object]],
         temperature: float = 0.2,
+        max_retries: int = 3,
     ) -> str:
         return "fake response"
 

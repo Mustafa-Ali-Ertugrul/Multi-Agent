@@ -7,9 +7,10 @@ import sys
 def test_python_m_multiagent_runs() -> None:
     """``python -m multiagent`` should execute without import errors."""
     import os
+
     env = dict(os.environ)
     env["PYTHONPATH"] = "src"
-    
+
     result = subprocess.run(
         [sys.executable, "-m", "multiagent", "--help"],
         capture_output=True,

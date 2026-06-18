@@ -13,7 +13,7 @@ def test_chat_retries_on_transient_error() -> None:
 
     call_count = 0
 
-    def flaky_chat(messages, temperature):
+    def flaky_chat(messages: list[dict[str, object]], temperature: float) -> str:
         nonlocal call_count
         call_count += 1
         if call_count == 1:
