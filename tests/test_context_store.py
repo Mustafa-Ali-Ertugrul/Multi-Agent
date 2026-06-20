@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+import json
 from pathlib import Path
 
 from multiagent.context.store import (
@@ -120,3 +123,43 @@ def test_json_round_trip(tmp_path: Path) -> None:
     assert loaded.agent_trace == store.agent_trace
     assert loaded.knowledge_graph == store.knowledge_graph
     assert loaded.benchmark_results == store.benchmark_results
+
+
+def test_get_ast_caches_parse(tmp_path: Path) -> None:
+    store = ContextStore(repo_path=tmp_path)
+    store.files["src/app.py"] = "x = 1\n"
+
+    first = store.get_ast("src/app.py")
+    second = store.get_ast("src/app.py")
+
+    assert first is not None
+    assert first is second
+
+
+def test_get_ast_returns_none_for_syntax_error(tmp_path: Path) -> None:
+    store = ContextStore(repo_path=tmp_path)
+    store.files["src/bad.py"] = "def :( invalid python\n"
+
+    first = store.get_ast("src/bad.py")
+    second = store.get_ast("src/bad.py")
+
+    assert first is None
+    assert second is None
+    assert store.ast_trees["src/bad.py"] is None
+
+
+def test_ast_trees_excluded_from_json(tmp_path: Path) -> None:
+    repo_path = tmp_path / "repo"
+    repo_path.mkdir()
+    store = ContextStore(repo_path=repo_path, run_id="run-1")
+    store.files["src/app.py"] = "x = 1\n"
+    store.get_ast("src/app.py")
+
+    parsed = json.loads(store.to_json())
+    assert "ast_trees" not in parsed
+
+    output_path = tmp_path / "context.json"
+    store.save(output_path)
+    loaded = ContextStore.load(output_path)
+
+    assert loaded.ast_trees == {}

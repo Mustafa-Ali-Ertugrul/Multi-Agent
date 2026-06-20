@@ -28,15 +28,16 @@ class ArchitectAgent(Agent):
         return "architect"
 
     def run(self, context: ContextStore) -> ContextStore:
-        summaries = [
-            self._summarize_file(path, content)
-            for path, content in sorted(context.files.items())
-            if path.endswith(".py")
-        ]
+        summaries: list[str] = []
+        for path, content in sorted(context.files.items()):
+            if not path.endswith(".py"):
+                continue
+            tree = context.get_ast(path)
+            summaries.append(self._summarize_file(path, content, tree))
 
         if not summaries:
             context.decisions.append(
-                "Python dosyasi bulunamadigi icin mimari inceleme yapilmadi."
+                "Python dosyasi bulunmadigi icin mimari inceleme yapilmadi."
             )
             return context
 
@@ -70,10 +71,8 @@ class ArchitectAgent(Agent):
         return context
 
     @classmethod
-    def _summarize_file(cls, path: str, content: str) -> str:
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+    def _summarize_file(cls, path: str, content: str, tree: ast.Module | None) -> str:
+        if tree is None:
             return cls._fallback_summary(path, content)
 
         imports: list[str] = []

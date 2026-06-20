@@ -90,14 +90,15 @@ class SecurityAgent(Agent):
     def _scan_python_ast(
         self, context: ContextStore, relative_path: str, content: str
     ) -> None:
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        tree = context.get_ast(relative_path)
+        if tree is None:
             return
+
+        risky_names = _risky_assigned_names(tree)
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
-                self._check_sqli(context, relative_path, node, tree)
+                self._check_sqli(context, relative_path, node, risky_names)
                 self._check_ssrf(context, relative_path, node)
                 self._check_xss(context, relative_path, node)
             elif isinstance(node, ast.JoinedStr):
@@ -108,7 +109,7 @@ class SecurityAgent(Agent):
         context: ContextStore,
         relative_path: str,
         node: ast.Call,
-        tree: ast.Module | None = None,
+        risky_names: set[str],
     ) -> None:
         call_name = _call_name(node.func)
         if not call_name.endswith(".execute") and call_name != "execute":
@@ -136,38 +137,18 @@ class SecurityAgent(Agent):
                     source="security:sqli",
                 )
             )
-        elif isinstance(query, ast.Name) and tree is not None:
-            func = _enclosing_function(tree, node)
-            scopes = (func, tree) if func is not None else (tree,)
-            for scope in scopes:
-                if scope is None:
-                    continue
-                for assign in ast.walk(scope):
-                    if not isinstance(assign, ast.Assign):
-                        continue
-                    if not any(
-                        isinstance(t, ast.Name) and t.id == query.id
-                        for t in assign.targets
-                    ):
-                        continue
-                    risky = isinstance(assign.value, (ast.JoinedStr, ast.BinOp)) or (
-                        isinstance(assign.value, ast.Call)
-                        and _call_name(assign.value.func).endswith(".format")
-                    )
-                    if risky:
-                        context.add_finding(
-                            Finding(
-                                severity="high",
-                                file=relative_path,
-                                line=node.lineno,
-                                message=(
-                                    "Potential SQL injection via assigned "
-                                    "dynamic execute() query."
-                                ),
-                                source="security:sqli",
-                            )
-                        )
-                        return
+        elif isinstance(query, ast.Name) and query.id in risky_names:
+            context.add_finding(
+                Finding(
+                    severity="high",
+                    file=relative_path,
+                    line=node.lineno,
+                    message=(
+                        "Potential SQL injection via assigned dynamic execute() query."
+                    ),
+                    source="security:sqli",
+                )
+            )
 
     @staticmethod
     def _check_ssrf(context: ContextStore, relative_path: str, node: ast.Call) -> None:
@@ -320,12 +301,17 @@ def _call_name(node: ast.AST) -> str:
     return ""
 
 
-def _enclosing_function(
-    tree: ast.AST, target: ast.AST
-) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+def _risky_assigned_names(tree: ast.AST) -> set[str]:
+    names: set[str] = set()
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            for child in ast.walk(node):
-                if child is target:
-                    return node
-    return None
+        if not isinstance(node, ast.Assign):
+            continue
+        value = node.value
+        risky = isinstance(value, (ast.JoinedStr, ast.BinOp)) or (
+            isinstance(value, ast.Call) and _call_name(value.func).endswith(".format")
+        )
+        if risky:
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    names.add(target.id)
+    return names

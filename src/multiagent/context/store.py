@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import time
 from dataclasses import asdict, dataclass, field
@@ -103,6 +104,11 @@ class ContextStore:
     proposed_diffs: list[DiffProposal] = field(default_factory=list)
     exclude_dirs: set[str] = field(
         default_factory=lambda: {".venv", "node_modules", ".git"}
+    )
+    ast_trees: dict[str, ast.Module | None] = field(
+        default_factory=dict,
+        compare=False,
+        repr=False,
     )
 
     def load_repo(self, path: Path | str) -> None:
@@ -218,6 +224,17 @@ class ContextStore:
             for path in repo_path.rglob("*.py")
             if not self.exclude_dirs.intersection(path.relative_to(repo_path).parts)
         ]
+
+    def get_ast(self, relative_path: str) -> ast.Module | None:
+        if relative_path in self.ast_trees:
+            return self.ast_trees[relative_path]
+        content = self.files.get(relative_path, "")
+        try:
+            tree = ast.parse(content)
+        except SyntaxError:
+            tree = None
+        self.ast_trees[relative_path] = tree
+        return tree
 
     @staticmethod
     def _read_str(data: dict[str, Any], key: str) -> str:

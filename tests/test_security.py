@@ -184,3 +184,28 @@ def test_security_agent_does_not_flag_safe_variable_execute(
 
     sqli_findings = [f for f in context.findings if f.source == "security:sqli"]
     assert sqli_findings == []
+
+
+def test_security_agent_flags_risky_assign_in_different_function(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    context = ContextStore(repo_path=tmp_path)
+    context.files = {
+        "db.py": "\n".join(
+            [
+                "query = f'SELECT * FROM users WHERE name = {1}'",
+                "def run(cursor):",
+                "    cursor.execute(query)",
+            ]
+        )
+    }
+    monkeypatch.setattr(SecurityAgent, "_run_bandit", lambda self, context: None)
+    monkeypatch.setattr(
+        SecurityAgent, "_run_dependency_audit", lambda self, context: None
+    )
+
+    SecurityAgent().run(context)
+
+    sqli_findings = [f for f in context.findings if f.source == "security:sqli"]
+    assert any("assigned" in finding.message for finding in sqli_findings)

@@ -20,7 +20,7 @@ class KnowledgeGraphAgent(Agent):
         nodes: list[KnowledgeNode] = []
         edges: list[KnowledgeEdge] = []
 
-        for relative_path, content in sorted(context.files.items()):
+        for relative_path, _content in sorted(context.files.items()):
             if not relative_path.endswith(".py"):
                 continue
             file_id = f"file:{relative_path}"
@@ -47,7 +47,8 @@ class KnowledgeGraphAgent(Agent):
             edges.append(
                 KnowledgeEdge(source=file_id, target=module_id, kind="defines")
             )
-            self._scan_file(relative_path, content, module_id, nodes, edges)
+            tree = context.get_ast(relative_path)
+            self._scan_file(relative_path, tree, module_id, nodes, edges)
 
         context.knowledge_graph = RepoGraph(nodes=nodes, edges=edges)
         context.decisions.append(
@@ -58,14 +59,12 @@ class KnowledgeGraphAgent(Agent):
     def _scan_file(
         self,
         relative_path: str,
-        content: str,
+        tree: ast.Module | None,
         module_id: str,
         nodes: list[KnowledgeNode],
         edges: list[KnowledgeEdge],
     ) -> None:
-        try:
-            tree = ast.parse(content)
-        except SyntaxError:
+        if tree is None:
             return
 
         imports = _imports_from_tree(tree)
