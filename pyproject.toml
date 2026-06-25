@@ -24,7 +24,7 @@ multiagent = "multiagent.cli:main"
 mcp = ["mcp>=1.0"]
 dev = [
   "bandit>=1.7",
-  "mypy>=1.10,<1.12",
+  "mypy>=1.10,<2.2",
   "pytest>=8.2",
   "pytest-asyncio>=0.23",
   "pytest-cov>=5.0",
